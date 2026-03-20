@@ -40,6 +40,9 @@ export default function DashboardPage() {
             <span className="font-display text-xs text-slate-500 font-medium">Guardian Console</span>
           </div>
           <div className="flex items-center gap-3">
+            <Link href="/demo" className="font-display text-xs text-slate-600 hover:text-yellow-400 transition-colors">
+              Demo Scam →
+            </Link>
             <Link href="/setup" className="font-display text-xs text-slate-600 hover:text-cyan-400 transition-colors">
               Setup →
             </Link>

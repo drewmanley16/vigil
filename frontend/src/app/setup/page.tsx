@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { injected } from 'wagmi/connectors';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
 import { GUARDIAN_WALLET_ABI } from '@/lib/contract';
+import { ConnectButton, ConnectModal } from '@/components/ConnectWallet';
 import Link from 'next/link';
 
 function Step({ n, title, subtitle, children }: {
@@ -32,7 +32,6 @@ function Label({ children }: { children: React.ReactNode }) {
 
 export default function SetupPage() {
   const { address, isConnected } = useAccount();
-  const { connect } = useConnect();
   const [contractAddress, setContractAddress] = useState('');
   const [guardianAddress, setGuardianAddress] = useState('');
   const [telegramHandle, setTelegramHandle] = useState('');
@@ -51,16 +50,7 @@ export default function SetupPage() {
             <span className="text-lg">🛡️</span>
             <span className="font-display text-sm font-bold text-white tracking-wide">Vigil</span>
           </Link>
-          {isConnected ? (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-950/20">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 pulse-dot" />
-              <span className="font-mono text-xs text-emerald-400">{address?.slice(0, 6)}…{address?.slice(-4)}</span>
-            </div>
-          ) : (
-            <button onClick={() => connect({ connector: injected() })} className="btn-primary text-sm py-2 px-4">
-              Connect Wallet
-            </button>
-          )}
+          <ConnectButton />
         </div>
       </header>
 
@@ -72,6 +62,13 @@ export default function SetupPage() {
             Three steps to protect your family member's wallet.
           </p>
         </div>
+
+        {/* Step 0 — Connect */}
+        {!isConnected && (
+          <Step n="00" title="Connect Wallet" subtitle="Connect MetaMask to interact with the contract">
+            <ConnectModal />
+          </Step>
+        )}
 
         {/* Step 1 */}
         <Step n="01" title="Deploy GuardianWallet" subtitle="Run the forge script from the contracts directory">

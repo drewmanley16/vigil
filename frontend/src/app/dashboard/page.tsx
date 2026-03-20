@@ -1,38 +1,11 @@
 'use client';
 
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { injected } from 'wagmi/connectors';
+import { useAccount } from 'wagmi';
 import { TransactionFeed } from '@/components/TransactionFeed';
 import { PendingApprovals } from '@/components/PendingApprovals';
 import { AlertHistory } from '@/components/AlertHistory';
+import { ConnectButton } from '@/components/ConnectWallet';
 import Link from 'next/link';
-
-function ConnectButton() {
-  const { address, isConnected } = useAccount();
-  const { connect } = useConnect();
-  const { disconnect } = useDisconnect();
-
-  if (isConnected) {
-    return (
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-950/20">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 pulse-dot" />
-          <span className="font-mono text-xs text-emerald-400">{address?.slice(0, 6)}…{address?.slice(-4)}</span>
-        </div>
-        <button onClick={() => disconnect()}
-          className="font-body text-xs text-slate-600 hover:text-slate-400 transition-colors">
-          Disconnect
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <button onClick={() => connect({ connector: injected() })} className="btn-primary">
-      Connect Wallet
-    </button>
-  );
-}
 
 function Panel({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (

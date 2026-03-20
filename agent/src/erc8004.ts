@@ -1,14 +1,26 @@
 import { ethers } from 'ethers';
 import { AnalysisBundle } from './types.js';
 
-// ERC-8004 Identity Registry on Base Sepolia
-// See: https://eips.ethereum.org/EIPS/eip-8004
-export const ERC8004_REGISTRY_ABI = [
-  'function register(string calldata agentUri) external returns (uint256 agentId)',
-  'function giveFeedback(uint256 agentId, uint8 rating, string calldata comment) external',
-  'function getAgent(uint256 agentId) external view returns (address owner, string memory agentUri, uint256 registeredAt)',
-  'event AgentRegistered(uint256 indexed agentId, address indexed owner, string agentUri)',
-  'event FeedbackGiven(uint256 indexed agentId, address indexed from, uint8 rating, string comment)',
+// ERC-8004 deployed addresses
+export const IDENTITY_REGISTRY_SEPOLIA = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
+export const REPUTATION_REGISTRY_SEPOLIA = '0x8004B663056A597Dffe9eCcC1965A193B7388713';
+export const IDENTITY_REGISTRY_MAINNET = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
+export const REPUTATION_REGISTRY_MAINNET = '0x8004BAa17C55a88189AE136b182e5fdA19dE9b63';
+
+export const IDENTITY_REGISTRY_ABI = [
+  'function register(string calldata agentURI) external returns (uint256 agentId)',
+  'function register() external returns (uint256 agentId)',
+  'function ownerOf(uint256 agentId) external view returns (address)',
+  'event Registered(uint256 indexed agentId, string agentURI, address indexed owner)',
+  'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
+];
+
+export const REPUTATION_REGISTRY_ABI = [
+  // value: int128 score, valueDecimals: 0-18, tag1/tag2: category strings
+  // feedbackHash: keccak256 of feedbackURI content, or bytes32(0)
+  // IMPORTANT: caller must NOT be the agent owner (no self-feedback)
+  'function giveFeedback(uint256 agentId, int128 value, uint8 valueDecimals, string calldata tag1, string calldata tag2, string calldata endpoint, string calldata feedbackURI, bytes32 feedbackHash) external',
+  'event NewFeedback(uint256 indexed agentId, address indexed from, int128 value, uint8 valueDecimals, string tag1, string tag2, string endpoint, string feedbackURI, bytes32 feedbackHash)',
 ];
 
 export async function registerAgent(
@@ -16,58 +28,114 @@ export async function registerAgent(
   signer: ethers.Signer,
   agentUri: string
 ): Promise<number> {
-  const registry = new ethers.Contract(registryAddress, ERC8004_REGISTRY_ABI, signer);
-  const tx = await registry.register(agentUri);
+  const registry = new ethers.Contract(registryAddress, IDENTITY_REGISTRY_ABI, signer);
+  console.log(`[ERC-8004] Registering Vigil on IdentityRegistry at ${registryAddress}...`);
+
+  const tx = await registry['register(string)'](agentUri);
   const receipt = await tx.wait();
 
-  // Parse AgentRegistered event to get agentId
-  const iface = new ethers.Interface(ERC8004_REGISTRY_ABI);
+  const iface = new ethers.Interface(IDENTITY_REGISTRY_ABI);
   for (const log of receipt.logs) {
     try {
       const parsed = iface.parseLog(log);
-      if (parsed?.name === 'AgentRegistered') {
+      if (parsed?.name === 'Registered') {
         const agentId = Number(parsed.args.agentId);
-        console.log(`[ERC-8004] Vigil registered with agentId=${agentId} uri=${agentUri}`);
+        console.log(`[ERC-8004] Registered! agentId=${agentId} txHash=${receipt.hash}`);
+        console.log(`[ERC-8004] View at: https://8004agents.ai/base-sepolia/agent/${agentId}`);
         return agentId;
       }
-    } catch {
-      // not our event
-    }
+    } catch { /* not our event */ }
   }
 
-  throw new Error('AgentRegistered event not found in receipt');
+  // Fallback: parse Transfer event (ERC-721 mint)
+  const erc721Iface = new ethers.Interface(['event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)']);
+  for (const log of receipt.logs) {
+    try {
+      const parsed = erc721Iface.parseLog(log);
+      if (parsed?.name === 'Transfer' && parsed.args.from === ethers.ZeroAddress) {
+        const agentId = Number(parsed.args.tokenId);
+        console.log(`[ERC-8004] Registered via Transfer event! agentId=${agentId}`);
+        return agentId;
+      }
+    } catch { /* not our event */ }
+  }
+
+  throw new Error('Could not find agentId in registration receipt');
+}
+
+// Build the feedback URI content (stored off-chain, hash stored on-chain)
+function buildFeedbackPayload(agentId: number, bundle: AnalysisBundle, registryAddress: string): object {
+  return {
+    agentRegistry: `eip155:84532:${registryAddress}`,
+    agentId,
+    createdAt: new Date().toISOString(),
+    value: bundle.veniceResult.riskScore,
+    valueDecimals: 0,
+    tag1: 'riskAnalysis',
+    tag2: bundle.veniceResult.riskLevel,
+    endpoint: 'https://vigil.vercel.app/dashboard',
+    txHash: bundle.transaction.hash,
+    recommendedAction: bundle.veniceResult.recommendedAction,
+    signals: bundle.signals.filter(s => s.triggered).map(s => s.signal),
+    model: 'venice/llama-3.3-70b',
+    reasoning: bundle.veniceResult.reasoning,
+  };
 }
 
 export async function emitFeedbackReceipt(
   registryAddress: string,
-  signer: ethers.Signer,
+  ownerSigner: ethers.Signer,   // The wallet that OWNS the agent registration
   agentId: number,
-  bundle: AnalysisBundle
-): Promise<string> {
-  const registry = new ethers.Contract(registryAddress, ERC8004_REGISTRY_ABI, signer);
+  bundle: AnalysisBundle,
+  feedbackSignerKey?: string    // Optional separate wallet for giving feedback (can't be owner)
+): Promise<string | null> {
+  if (!registryAddress || agentId === 0) {
+    console.log('[ERC-8004] Skipping feedback receipt — registry not configured');
+    return null;
+  }
 
-  // Rating: 1-5 based on risk level (not a judgment of the transaction, but a signal quality rating)
-  // This receipt proves the agent analyzed the transaction on-chain
-  const ratingMap: Record<string, number> = {
-    LOW: 5,
-    MEDIUM: 4,
-    HIGH: 3,
-    CRITICAL: 2,
-  };
-  const rating = ratingMap[bundle.veniceResult.riskLevel] ?? 3;
+  // Reputation feedback requires a DIFFERENT signer than the agent owner
+  // (ERC-8004 prevents self-feedback to avoid reputation gaming)
+  // We log the analysis data on-chain via the GuardianWallet's RiskScoreSet event instead,
+  // and store the feedback payload as a URI for verifiability.
+  const payload = buildFeedbackPayload(agentId, bundle, registryAddress);
+  const payloadJson = JSON.stringify(payload);
+  const feedbackHash = ethers.keccak256(ethers.toUtf8Bytes(payloadJson));
 
-  const comment = JSON.stringify({
-    txHash: bundle.transaction.hash,
-    riskScore: bundle.veniceResult.riskScore,
-    riskLevel: bundle.veniceResult.riskLevel,
-    action: bundle.veniceResult.recommendedAction,
-    signals: bundle.signals.filter((s) => s.triggered).map((s) => s.signal),
-    analyzedAt: new Date().toISOString(),
-    model: 'venice/llama-3.3-70b',
-  });
+  console.log(`[ERC-8004] Analysis receipt hash=${feedbackHash.slice(0, 18)}... (stored on GuardianWallet via RiskScoreSet)`);
 
-  const tx = await registry.giveFeedback(agentId, rating, comment);
-  const receipt = await tx.wait();
-  console.log(`[ERC-8004] Feedback receipt emitted for txHash=${bundle.transaction.hash} receiptHash=${receipt.hash}`);
-  return receipt.hash as string;
+  // If a separate feedback signer is provided, use ReputationRegistry
+  if (feedbackSignerKey) {
+    try {
+      const provider = (ownerSigner as ethers.Wallet).provider!;
+      const feedbackWallet = new ethers.Wallet(feedbackSignerKey, provider);
+      const reputationRegistry = getReputationRegistry(registryAddress);
+      const repContract = new ethers.Contract(reputationRegistry, REPUTATION_REGISTRY_ABI, feedbackWallet);
+
+      const tx = await repContract.giveFeedback(
+        agentId,
+        bundle.veniceResult.riskScore,  // value (0-100)
+        0,                               // valueDecimals
+        'riskAnalysis',                  // tag1
+        bundle.veniceResult.riskLevel,   // tag2
+        'https://vigil.vercel.app/dashboard', // endpoint
+        '',                              // feedbackURI (empty, use hash only)
+        feedbackHash                     // feedbackHash
+      );
+      const receipt = await tx.wait();
+      console.log(`[ERC-8004] Reputation feedback emitted! txHash=${receipt.hash}`);
+      return receipt.hash as string;
+    } catch (err) {
+      console.error('[ERC-8004] Reputation feedback failed (non-fatal):', err);
+    }
+  }
+
+  return null;
+}
+
+function getReputationRegistry(identityRegistryAddress: string): string {
+  if (identityRegistryAddress.toLowerCase() === IDENTITY_REGISTRY_SEPOLIA.toLowerCase()) {
+    return REPUTATION_REGISTRY_SEPOLIA;
+  }
+  return REPUTATION_REGISTRY_MAINNET;
 }

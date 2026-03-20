@@ -1,10 +1,28 @@
 {
-  "schemaVersion": "erc8004-v1",
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
   "name": "Vigil",
-  "description": "Elder financial fraud prevention agent. Monitors a GuardianWallet smart contract on Base, analyzes transactions using Venice API (private, no-retention inference), and alerts designated guardians via Telegram. Large transactions are escrowed until a guardian co-signs.",
-  "version": "1.0.0",
-  "author": "Drew Manley",
-  "repository": "https://github.com/drewmanley16/vigil",
+  "description": "Elder financial fraud prevention agent. Monitors a GuardianWallet smart contract on Base for suspicious outbound transactions. Analyzes each transaction using Venice AI (private, no-retention inference) and alerts designated guardians via Telegram. Large transactions are escrowed until a guardian co-signs.",
+  "image": "https://raw.githubusercontent.com/drewmanley16/vigil/main/docs/vigil-icon.png",
+  "services": [
+    {
+      "name": "web",
+      "endpoint": "https://vigil.vercel.app"
+    },
+    {
+      "name": "dashboard",
+      "endpoint": "https://vigil.vercel.app/dashboard"
+    }
+  ],
+  "x402Support": false,
+  "active": true,
+  "agentWallet": "0x5DacE6e950F3e8c18684395B518EdE2465a895b0",
+  "registrations": [
+    {
+      "agentId": 0,
+      "agentRegistry": "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e"
+    }
+  ],
+  "supportedTrust": ["reputation"],
   "capabilities": [
     "transaction-monitoring",
     "risk-analysis",
@@ -16,18 +34,13 @@
     "canHoldFunds": false,
     "scopedTo": ["setRiskScore()"],
     "privateInference": true,
+    "inferenceProvider": "Venice AI",
     "dataRetention": "none"
-  },
-  "inferenceProvider": {
-    "name": "Venice AI",
-    "model": "llama-3.3-70b",
-    "dataRetention": false,
-    "endpoint": "https://api.venice.ai/api/v1/chat/completions"
   },
   "network": "base",
   "chains": [8453, 84532],
-  "agentWallet": "0x5DacE6e950F3e8c18684395B518EdE2465a895b0",
+  "repository": "https://github.com/drewmanley16/vigil",
   "contact": {
-    "telegram": "@drewmanley16"
+    "telegram": "@drewmanley"
   }
 }

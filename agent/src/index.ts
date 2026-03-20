@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Config } from './types.js';
 import { startMonitor } from './monitor.js';
-import { registerAgent } from './erc8004.js';
+import { registerAgent, IDENTITY_REGISTRY_SEPOLIA, IDENTITY_REGISTRY_MAINNET } from './erc8004.js';
 import { ethers } from 'ethers';
 
 function requireEnv(key: string): string {
@@ -27,7 +27,9 @@ async function main(): Promise<void> {
     erc8004RegistryAddress: process.env.ERC8004_REGISTRY_ADDRESS ?? '',
   };
 
-  const erc8004RegistryAddress = process.env.ERC8004_REGISTRY_ADDRESS ?? '';
+  const isMainnet = config.rpcUrl.includes('mainnet');
+  const erc8004RegistryAddress = process.env.ERC8004_REGISTRY_ADDRESS ||
+    (isMainnet ? IDENTITY_REGISTRY_MAINNET : IDENTITY_REGISTRY_SEPOLIA);
   const agentUri = process.env.AGENT_URI ?? 'https://raw.githubusercontent.com/drewmanley16/vigil/main/docs/agent-registration.json';
 
   // Ensure data directory exists

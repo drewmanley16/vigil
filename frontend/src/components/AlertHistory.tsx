@@ -19,7 +19,7 @@ export function AlertHistory() {
     async function fetchHistory() {
       try {
         const block = await client.getBlockNumber();
-        const fromBlock = block > 50000n ? block - 50000n : 0n;
+        const fromBlock = block > 9000n ? block - 9000n : 0n;
         const logs = await client.getContractEvents({
           address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'SuspiciousActivityFlagged', fromBlock,
         });

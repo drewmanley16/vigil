@@ -15,6 +15,7 @@ interface FeedItem {
   timestamp: bigint;
   riskScore?: number;
   riskReason?: string;
+  status?: 'pending' | 'executed' | 'cancelled';
   hash: string;
 }
 
@@ -28,29 +29,39 @@ export function TransactionFeed() {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load historical events once on mount
   useEffect(() => {
     if (!CONTRACT_ADDRESS) { setLoading(false); return; }
     async function fetchHistory() {
       try {
         const block = await client.getBlockNumber();
         const fromBlock = block > 9000n ? block - 9000n : 0n;
-        const [proposed, direct, riskSet] = await Promise.all([
+        const [proposed, direct, riskSet, executed, cancelled] = await Promise.all([
           client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionProposed', fromBlock }),
           client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'DirectTransfer', fromBlock }),
           client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'RiskScoreSet', fromBlock }),
+          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionExecuted', fromBlock }),
+          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionCancelled', fromBlock }),
         ]);
 
         const initial: FeedItem[] = [
-          ...proposed.map((log) => { const { txId, to, value, timestamp } = log.args as any; return { type: 'proposed' as const, txId, to, value, timestamp, hash: log.transactionHash }; }),
+          ...proposed.map((log) => { const { txId, to, value, timestamp } = log.args as any; return { type: 'proposed' as const, txId, to, value, timestamp, status: 'pending' as const, hash: log.transactionHash }; }),
           ...direct.map((log) => { const { to, value, timestamp } = log.args as any; return { type: 'direct' as const, to, value, timestamp, hash: log.transactionHash }; }),
         ].sort((a, b) => Number(b.timestamp) - Number(a.timestamp)).slice(0, 50);
 
-        // Apply risk scores
         for (const log of riskSet) {
           const { txId, score, reason } = log.args as any;
           const item = initial.find((i) => i.txId === txId);
           if (item) { item.riskScore = Number(score); item.riskReason = reason; }
+        }
+        for (const log of executed) {
+          const { txId } = log.args as any;
+          const item = initial.find((i) => i.txId === txId);
+          if (item) item.status = 'executed';
+        }
+        for (const log of cancelled) {
+          const { txId } = log.args as any;
+          const item = initial.find((i) => i.txId === txId);
+          if (item) item.status = 'cancelled';
         }
         setItems(initial);
       } catch (e) {
@@ -68,8 +79,11 @@ export function TransactionFeed() {
   const updateRisk = (txId: bigint, riskScore: number, riskReason: string) =>
     setItems((prev) => prev.map((item) => item.txId === txId ? { ...item, riskScore, riskReason } : item));
 
+  const updateStatus = (txId: bigint, status: 'executed' | 'cancelled') =>
+    setItems((prev) => prev.map((item) => item.txId === txId ? { ...item, status } : item));
+
   useWatchContractEvent({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionProposed',
-    onLogs: (logs) => { for (const log of logs) { const { txId, to, value, timestamp } = log.args as any; addItem({ type: 'proposed', txId, to, value, timestamp, hash: log.transactionHash }); } },
+    onLogs: (logs) => { for (const log of logs) { const { txId, to, value, timestamp } = log.args as any; addItem({ type: 'proposed', txId, to, value, timestamp, status: 'pending', hash: log.transactionHash }); } },
   });
   useWatchContractEvent({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'DirectTransfer',
     onLogs: (logs) => { for (const log of logs) { const { to, value, timestamp } = log.args as any; addItem({ type: 'direct', to, value, timestamp, hash: log.transactionHash }); } },
@@ -77,13 +91,17 @@ export function TransactionFeed() {
   useWatchContractEvent({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'RiskScoreSet',
     onLogs: (logs) => { for (const log of logs) { const { txId, score, reason } = log.args as any; updateRisk(txId, Number(score), reason); } },
   });
+  useWatchContractEvent({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionExecuted',
+    onLogs: (logs) => { for (const log of logs) { const { txId } = log.args as any; updateStatus(txId, 'executed'); } },
+  });
+  useWatchContractEvent({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionCancelled',
+    onLogs: (logs) => { for (const log of logs) { const { txId } = log.args as any; updateStatus(txId, 'cancelled'); } },
+  });
 
   if (loading) {
     return (
       <div className="flex flex-col items-center gap-2 py-12 text-slate-600">
-        <div className="w-8 h-8 rounded-full border border-slate-800 flex items-center justify-center">
-          <span className="w-2 h-2 rounded-full bg-cyan-700 pulse-dot" />
-        </div>
+        <span className="w-2 h-2 rounded-full bg-cyan-700 pulse-dot" />
         <p className="section-label">Loading transactions…</p>
       </div>
     );
@@ -92,9 +110,7 @@ export function TransactionFeed() {
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 py-12 text-slate-600">
-        <div className="w-8 h-8 rounded-full border border-slate-800 flex items-center justify-center">
-          <span className="w-2 h-2 rounded-full bg-slate-700 pulse-dot" />
-        </div>
+        <span className="w-2 h-2 rounded-full bg-slate-700 pulse-dot" />
         <p className="section-label">No transactions yet</p>
       </div>
     );
@@ -105,6 +121,8 @@ export function TransactionFeed() {
       {items.map((item) => {
         const level = item.riskScore !== undefined ? riskLevelFromScore(item.riskScore) : undefined;
         const accentClass =
+          item.status === 'executed'  ? 'border-emerald-500/20' :
+          item.status === 'cancelled' ? 'border-white/5 opacity-50' :
           level === 'CRITICAL' ? 'border-red-500/30 bg-red-950/10' :
           level === 'HIGH'     ? 'border-orange-500/20' :
           level === 'MEDIUM'   ? 'border-yellow-500/15' :
@@ -116,9 +134,15 @@ export function TransactionFeed() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap mb-1.5">
                   <span className="font-display text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                    {item.type === 'proposed' ? `🔒 Escrow #${item.txId}` : '⚡ Direct'}
+                    {item.type === 'proposed' ? `ESCROW #${item.txId}` : 'DIRECT'}
                   </span>
-                  {level && <RiskBadge level={level} score={item.riskScore} />}
+                  {item.status === 'executed' && (
+                    <span className="font-display text-[10px] font-bold text-emerald-400 border border-emerald-500/25 rounded-full px-2 py-0.5">APPROVED</span>
+                  )}
+                  {item.status === 'cancelled' && (
+                    <span className="font-display text-[10px] font-bold text-slate-500 border border-white/8 rounded-full px-2 py-0.5">CANCELLED</span>
+                  )}
+                  {level && item.status !== 'cancelled' && <RiskBadge level={level} score={item.riskScore} />}
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="font-mono text-xs text-slate-500">{truncate(item.to)}</span>
@@ -127,7 +151,7 @@ export function TransactionFeed() {
                     <span className="text-cyan-500/70 text-sm font-normal ml-1">ETH</span>
                   </span>
                 </div>
-                {item.riskReason && (
+                {item.riskReason && item.status !== 'cancelled' && (
                   <p className="font-body text-xs text-slate-500 mt-1.5 leading-relaxed italic">{item.riskReason}</p>
                 )}
               </div>

@@ -18,7 +18,7 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function formatMessage(bundle: AnalysisBundle, contractAddress: string, dashboardUrl: string): string {
+function formatMessage(bundle: AnalysisBundle, dashboardUrl: string): string {
   const { transaction: tx, signals, veniceResult } = bundle;
   const emoji = RISK_EMOJI[veniceResult.riskLevel];
   const valueEth = parseFloat(ethers.formatEther(tx.value)).toFixed(4);
@@ -28,11 +28,9 @@ function formatMessage(bundle: AnalysisBundle, contractAddress: string, dashboar
   const toAddr = escapeHtml(tx.to ?? 'unknown');
   const score = veniceResult.riskScore;
 
-  // Score bar: 10 blocks
   const filled = Math.round(score / 10);
   const scoreBar = '█'.repeat(filled) + '░'.repeat(10 - filled);
 
-  // Signal chips
   const signalMap: Record<string, string> = {
     FIRST_TIME_RECIPIENT: '👤 New recipient',
     ABOVE_THRESHOLD: '💰 Above threshold',
@@ -44,9 +42,7 @@ function formatMessage(bundle: AnalysisBundle, contractAddress: string, dashboar
     ? triggeredSignals.map((s) => signalMap[s.signal] ?? s.signal).join('  ·  ')
     : 'None';
 
-  const header = isEscrowed
-    ? `🔒 <b>FUNDS HELD IN ESCROW</b>`
-    : `${emoji} <b>VIGIL ALERT</b>`;
+  const header = isEscrowed ? `🔒 <b>FUNDS HELD IN ESCROW</b>` : `${emoji} <b>VIGIL ALERT</b>`;
 
   const lines = [
     header,
@@ -66,11 +62,28 @@ function formatMessage(bundle: AnalysisBundle, contractAddress: string, dashboar
     ``,
     `<code>──────────────────────</code>`,
     isEscrowed
-      ? `⚠️ <b>Action required.</b> Open the dashboard to approve or cancel.\n\n<a href="${dashboardUrl}">→ Open Guardian Console</a>`
+      ? `⚠️ <b>Action required.</b> Use the buttons below or open the dashboard.`
       : `<a href="${dashboardUrl}">→ Open Guardian Console</a>`,
   ];
 
   return lines.filter((l) => l !== '').join('\n');
+}
+
+function buildReplyMarkup(bundle: AnalysisBundle, dashboardUrl: string) {
+  const isEscrowed = bundle.transaction.txId !== undefined;
+  if (!isEscrowed) return undefined;
+
+  return {
+    inline_keyboard: [
+      [
+        { text: '✓ Approve', callback_data: `approve:${bundle.transaction.txId}` },
+        { text: '✗ Cancel', callback_data: `cancel:${bundle.transaction.txId}` },
+      ],
+      [
+        { text: '→ Open Dashboard', url: dashboardUrl },
+      ],
+    ],
+  };
 }
 
 export async function sendTelegramAlert(
@@ -80,15 +93,17 @@ export async function sendTelegramAlert(
   contractAddress: string,
   dashboardUrl: string = 'https://vigil-guardian.vercel.app/dashboard'
 ): Promise<void> {
-  const message = formatMessage(bundle, contractAddress, dashboardUrl);
+  const message = formatMessage(bundle, dashboardUrl);
+  const replyMarkup = buildReplyMarkup(bundle, dashboardUrl);
 
   const url = `${TELEGRAM_API}/bot${botToken}/sendMessage`;
-  const body = {
+  const body: Record<string, unknown> = {
     chat_id: chatId,
     text: message,
     parse_mode: 'HTML',
-    disable_web_page_preview: false,
+    disable_web_page_preview: true,
   };
+  if (replyMarkup) body.reply_markup = replyMarkup;
 
   try {
     const response = await fetch(url, {
@@ -101,13 +116,65 @@ export async function sendTelegramAlert(
       const err = await response.text();
       throw new Error(`Telegram error ${response.status}: ${err}`);
     }
-
-    console.log(`[Telegram] Alert sent for ${veniceResult_level(bundle)} risk transaction`);
+    console.log(`[Telegram] Alert sent — ${bundle.veniceResult.riskLevel} risk`);
   } catch (err) {
     console.error('[Telegram] Failed to send alert:', err);
   }
 }
 
-function veniceResult_level(bundle: AnalysisBundle): string {
-  return bundle.veniceResult.riskLevel;
+async function answerCallbackQuery(botToken: string, callbackQueryId: string, text: string): Promise<void> {
+  await fetch(`${TELEGRAM_API}/bot${botToken}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: callbackQueryId, text, show_alert: false }),
+  });
+}
+
+export async function startTelegramCallbackHandler(
+  botToken: string,
+  contract: ethers.Contract
+): Promise<void> {
+  let offset = 0;
+  console.log('[Telegram] Callback handler started');
+
+  const poll = async () => {
+    try {
+      const res = await fetch(`${TELEGRAM_API}/bot${botToken}/getUpdates?offset=${offset}&timeout=10&allowed_updates=["callback_query"]`);
+      if (!res.ok) return;
+      const data = await res.json() as any;
+
+      for (const update of data.result ?? []) {
+        offset = update.update_id + 1;
+        const cq = update.callback_query;
+        if (!cq?.data) continue;
+
+        const [action, txIdStr] = cq.data.split(':');
+        const txId = parseInt(txIdStr, 10);
+        if (isNaN(txId)) continue;
+
+        console.log(`[Telegram] Callback: ${action} txId=${txId}`);
+
+        try {
+          if (action === 'approve') {
+            const tx = await contract.approve(txId);
+            await tx.wait();
+            await answerCallbackQuery(botToken, cq.id, `✓ Tx #${txId} approved — funds released.`);
+            console.log(`[Telegram] Approved txId=${txId}`);
+          } else if (action === 'cancel') {
+            const tx = await contract.cancel(txId);
+            await tx.wait();
+            await answerCallbackQuery(botToken, cq.id, `✗ Tx #${txId} cancelled — funds returned.`);
+            console.log(`[Telegram] Cancelled txId=${txId}`);
+          }
+        } catch (err: any) {
+          await answerCallbackQuery(botToken, cq.id, `Error: ${err.message?.slice(0, 80)}`);
+          console.error(`[Telegram] Callback action failed:`, err);
+        }
+      }
+    } catch (err) {
+      console.error('[Telegram] Callback poll error:', err);
+    }
+  };
+
+  setInterval(poll, 3000);
 }

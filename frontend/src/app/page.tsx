@@ -12,7 +12,7 @@ export default function Home() {
 
         {/* Icon */}
         <div className="mb-8 relative inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">
-          <span className="text-4xl">🛡️</span>
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M18 3L4.5 9V18C4.5 25.5 10.35 32.4 18 34.5C25.65 32.4 31.5 25.5 31.5 18V9L18 3Z" stroke="#06b6d4" strokeWidth="2.5" strokeLinejoin="round"/><path d="M12 18L16 22L24 14" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           <div className="absolute inset-0 rounded-2xl bg-cyan-400/5 blur-md" />
         </div>
 
@@ -37,12 +37,12 @@ export default function Home() {
         {/* Features */}
         <div className="grid grid-cols-3 gap-3 mb-10">
           {[
-            { icon: '🔒', title: 'Smart Escrow', desc: 'Transactions above your threshold are held until a guardian approves' },
-            { icon: '🤖', title: 'Private AI', desc: 'Venice API analyzes every transaction — zero data retention, ever' },
-            { icon: '📲', title: 'Live Alerts', desc: 'Guardians get Telegram alerts with AI risk scores in seconds' },
+            { icon: '01', title: 'Smart Escrow', desc: 'Transactions above your threshold are held until a guardian approves' },
+            { icon: '02', title: 'Private AI', desc: 'Venice API analyzes every transaction — zero data retention, ever' },
+            { icon: '03', title: 'Live Alerts', desc: 'Guardians get Telegram alerts with AI risk scores in seconds' },
           ].map((f) => (
             <div key={f.title} className="card p-4 text-left hover:border-cyan-500/15 transition-colors">
-              <div className="text-2xl mb-3">{f.icon}</div>
+              <div className="font-display text-xs font-bold text-cyan-500/50 mb-3 tracking-widest">{f.icon}</div>
               <p className="font-display text-sm font-semibold text-white mb-1">{f.title}</p>
               <p className="font-body text-xs text-slate-500 leading-relaxed">{f.desc}</p>
             </div>

@@ -2,6 +2,8 @@ import 'dotenv/config';
 import { Config } from './types.js';
 import { startMonitor } from './monitor.js';
 import { registerAgent, IDENTITY_REGISTRY_SEPOLIA, IDENTITY_REGISTRY_MAINNET } from './erc8004.js';
+import { startTelegramCallbackHandler } from './alerts.js';
+import { buildContract } from './onchain.js';
 import { ethers } from 'ethers';
 
 function requireEnv(key: string): string {
@@ -50,6 +52,12 @@ async function main(): Promise<void> {
       console.warn('[ERC-8004] Registration failed (non-fatal):', err);
     }
   }
+
+  // Start Telegram callback handler so guardian can approve/cancel from the alert message
+  const provider = new ethers.JsonRpcProvider(config.rpcUrl);
+  const agentWallet = new ethers.Wallet(config.agentPrivateKey, provider);
+  const contract = buildContract(config.contractAddress, agentWallet);
+  startTelegramCallbackHandler(config.telegramBotToken, contract);
 
   await startMonitor(config, agentId, erc8004RegistryAddress);
 

@@ -95,7 +95,7 @@ export default function SetupPage() {
       <header className="sticky top-0 z-50 border-b border-white/5 bg-[#070a10]/90 backdrop-blur-md">
         <div className="max-w-2xl mx-auto px-5 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <span className="text-lg">🛡️</span>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1.5L2.25 4.5V9C2.25 12.75 5.175 16.2 9 17.25C12.825 16.2 15.75 12.75 15.75 9V4.5L9 1.5Z" stroke="#06b6d4" strokeWidth="1.5" strokeLinejoin="round"/></svg>
             <span className="font-display text-sm font-bold text-white tracking-wide">Vigil</span>
           </Link>
           <ConnectButton />

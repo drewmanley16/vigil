@@ -1,15 +1,23 @@
 type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 const styles: Record<RiskLevel, string> = {
-  LOW: 'bg-green-100 text-green-800 border-green-300',
-  MEDIUM: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  HIGH: 'bg-orange-100 text-orange-800 border-orange-300',
-  CRITICAL: 'bg-red-100 text-red-800 border-red-300',
+  LOW:      'bg-emerald-950/50 text-emerald-400 border-emerald-500/30',
+  MEDIUM:   'bg-yellow-950/50 text-yellow-400 border-yellow-500/30',
+  HIGH:     'bg-orange-950/50 text-orange-400 border-orange-500/30',
+  CRITICAL: 'bg-red-950/50 text-red-400 border-red-500/50 critical-flicker',
+};
+
+const dots: Record<RiskLevel, string> = {
+  LOW:      'bg-emerald-400',
+  MEDIUM:   'bg-yellow-400',
+  HIGH:     'bg-orange-400',
+  CRITICAL: 'bg-red-400',
 };
 
 export function RiskBadge({ level, score }: { level: RiskLevel; score?: number }) {
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-semibold ${styles[level]}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-bold tracking-widest uppercase ${styles[level]}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dots[level]}`} />
       {level}{score !== undefined ? ` · ${score}` : ''}
     </span>
   );

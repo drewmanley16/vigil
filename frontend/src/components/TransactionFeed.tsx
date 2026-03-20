@@ -18,11 +18,11 @@ interface FeedItem {
 }
 
 function truncate(addr: string) {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+  return `${addr.slice(0, 8)}…${addr.slice(-6)}`;
 }
 
 function formatTime(timestamp: bigint) {
-  return new Date(Number(timestamp) * 1000).toLocaleString();
+  return new Date(Number(timestamp) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 export function TransactionFeed() {
@@ -78,41 +78,49 @@ export function TransactionFeed() {
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-400">
-        <p className="text-lg">No transactions yet</p>
-        <p className="text-sm mt-1">Watching for activity on the guardian wallet...</p>
+      <div className="flex flex-col items-center justify-center py-12 text-slate-600">
+        <div className="text-4xl mb-3 opacity-20">◈</div>
+        <p className="text-xs tracking-widest uppercase">No activity detected</p>
+        <p className="text-xs text-slate-700 mt-1">Monitoring contract for events…</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
-      {items.map((item) => (
-        <div
-          key={item.hash + (item.txId?.toString() ?? '')}
-          className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 border border-gray-200"
-        >
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-medium text-gray-500 uppercase">
-                {item.type === 'proposed' ? `🔒 Escrowed #${item.txId}` : '⚡ Direct'}
-              </span>
-              {item.riskScore !== undefined && (
-                <RiskBadge level={riskLevelFromScore(item.riskScore)} score={item.riskScore} />
+      {items.map((item) => {
+        const level = item.riskScore !== undefined ? riskLevelFromScore(item.riskScore) : undefined;
+        const borderColor = level === 'CRITICAL' ? 'border-red-500/40' :
+                            level === 'HIGH'     ? 'border-orange-500/30' :
+                            level === 'MEDIUM'   ? 'border-yellow-500/20' :
+                                                   'border-slate-700/50';
+        return (
+          <div
+            key={item.hash + (item.txId?.toString() ?? '')}
+            className={`flex items-start gap-3 p-3 rounded border ${borderColor} bg-slate-950/60 font-mono`}
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="text-[10px] tracking-wider text-slate-500 uppercase">
+                  {item.type === 'proposed' ? `🔒 ESCROWED #${item.txId}` : '⚡ DIRECT'}
+                </span>
+                {level && <RiskBadge level={level} score={item.riskScore} />}
+                <span className="text-[10px] text-slate-600 ml-auto">{formatTime(item.timestamp)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400">{truncate(item.to)}</span>
+                <span className="text-slate-600">·</span>
+                <span className="text-sm font-bold text-cyan-400">
+                  {parseFloat(formatEther(item.value)).toFixed(6)} ETH
+                </span>
+              </div>
+              {item.riskReason && (
+                <p className="text-[11px] text-slate-500 mt-1 italic leading-snug">{item.riskReason}</p>
               )}
             </div>
-            <p className="text-sm mt-0.5">
-              <span className="font-mono">{truncate(item.to)}</span>
-              {' · '}
-              <span className="font-semibold">{parseFloat(formatEther(item.value)).toFixed(4)} ETH</span>
-            </p>
-            {item.riskReason && (
-              <p className="text-xs text-gray-500 mt-0.5 italic">{item.riskReason}</p>
-            )}
-            <p className="text-xs text-gray-400 mt-0.5">{formatTime(item.timestamp)}</p>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

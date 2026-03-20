@@ -8,21 +8,25 @@ import { buildContract, setRiskScoreOnChain } from './onchain.js';
 import { emitFeedbackReceipt } from './erc8004.js';
 
 let seenAddresses: Set<string>;
+let processedTxHashes: Set<string>;
 let lastProcessedBlock: number;
-const processedTxHashes = new Set<string>();
+let processedHashesPath: string;
 
-function loadSeenAddresses(filePath: string): Set<string> {
+function loadSet(filePath: string): Set<string> {
   try {
-    const data = fs.readFileSync(filePath, 'utf-8');
-    return new Set(JSON.parse(data));
+    return new Set(JSON.parse(fs.readFileSync(filePath, 'utf-8')));
   } catch {
     return new Set();
   }
 }
 
-function saveSeenAddresses(filePath: string, addresses: Set<string>): void {
-  fs.writeFileSync(filePath, JSON.stringify([...addresses]), 'utf-8');
+function saveSet(filePath: string, set: Set<string>): void {
+  fs.writeFileSync(filePath, JSON.stringify([...set]), 'utf-8');
 }
+
+// Backwards compat
+function loadSeenAddresses(filePath: string) { return loadSet(filePath); }
+function saveSeenAddresses(filePath: string, addresses: Set<string>) { saveSet(filePath, addresses); }
 
 export async function startMonitor(
   config: Config,
@@ -30,6 +34,8 @@ export async function startMonitor(
   erc8004RegistryAddress: string
 ): Promise<void> {
   seenAddresses = loadSeenAddresses(config.seenAddressesPath);
+  processedHashesPath = config.seenAddressesPath.replace('seen_addresses', 'processed_hashes');
+  processedTxHashes = loadSet(processedHashesPath);
 
   const provider = new ethers.JsonRpcProvider(config.rpcUrl);
   const agentWallet = new ethers.Wallet(config.agentPrivateKey, provider);
@@ -60,6 +66,7 @@ export async function startMonitor(
         const txHash = log.transactionHash;
         if (processedTxHashes.has(txHash)) continue;
         processedTxHashes.add(txHash);
+        saveSet(processedHashesPath, processedTxHashes);
 
         console.log(`[Event] TransactionProposed txId=${txId} to=${to} value=${ethers.formatEther(value)} ETH`);
 
@@ -85,6 +92,7 @@ export async function startMonitor(
         const txHash = log.transactionHash;
         if (processedTxHashes.has(txHash)) continue;
         processedTxHashes.add(txHash);
+        saveSet(processedHashesPath, processedTxHashes);
 
         console.log(`[Event] DirectTransfer to=${to} value=${ethers.formatEther(value)} ETH`);
 

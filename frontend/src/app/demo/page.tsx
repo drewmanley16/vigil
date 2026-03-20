@@ -8,7 +8,7 @@ import { ConnectButton } from '@/components/ConnectWallet';
 import Link from 'next/link';
 
 // Fake scammer address
-const SCAMMER = '0xDeAdBeEf00000000000000000000000000000001' as `0x${string}`;
+const SCAMMER = '0x000000000000000000000000000000000000dEaD' as `0x${string}`;
 const ABOVE_THRESHOLD = '1.5'; // ETH — above the 1 ETH threshold
 const BELOW_THRESHOLD = '0.001'; // ETH — triggers alert but goes through directly
 

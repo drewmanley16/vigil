@@ -2,7 +2,7 @@
 
 ## Identity
 - **Agent Name**: Vigil
-- **ERC-8004 Agent ID**: [fill after registration]
+- **ERC-8004 Agent ID**: 2279 (Base Sepolia) — https://8004agents.ai/base-sepolia/agent/2279
 - **Agent Wallet**: 0x5DacE6e950F3e8c18684395B518EdE2465a895b0
 - **Dashboard**: https://vigil.vercel.app
 

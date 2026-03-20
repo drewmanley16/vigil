@@ -9,8 +9,8 @@ import Link from 'next/link';
 
 // Fake scammer address
 const SCAMMER = '0x000000000000000000000000000000000000dEaD' as `0x${string}`;
-const ABOVE_THRESHOLD = '1.5'; // ETH — above the 1 ETH threshold
-const BELOW_THRESHOLD = '0.001'; // ETH — triggers alert but goes through directly
+const ABOVE_THRESHOLD = '0.002'; // ETH — above the 0.001 ETH threshold
+const BELOW_THRESHOLD = '0.0005'; // ETH — triggers alert but goes through directly
 
 function Countdown() {
   const [secs, setSecs] = useState(2 * 60 * 60 + 47 * 60 + 13); // fake urgency
@@ -137,7 +137,7 @@ export default function DemoPage() {
           {mode === 'escrow' ? (
             <>
               <p className="font-display text-sm font-semibold text-yellow-400">Claim {ABOVE_THRESHOLD} ETH Yield Position</p>
-              <p className="font-body text-slate-500">Sends <span className="text-yellow-400 font-semibold">{ABOVE_THRESHOLD} ETH</span> above the guardian threshold → <span className="text-cyan-400">locked in escrow</span> until guardian approves or cancels.</p>
+              <p className="font-body text-slate-500">Sends <span className="text-yellow-400 font-semibold">{ABOVE_THRESHOLD} ETH</span> above the 0.001 ETH guardian threshold → <span className="text-cyan-400">locked in escrow</span> until guardian approves or cancels.</p>
               <p className="font-body text-slate-600">→ Vigil agent detects it, Venice AI scores it CRITICAL, Telegram alert fires, escrow holds funds.</p>
             </>
           ) : (

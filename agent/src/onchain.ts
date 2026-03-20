@@ -9,6 +9,9 @@ export const GUARDIAN_WALLET_ABI = [
   'event SuspiciousActivityFlagged(address indexed to, uint256 value, string reason)',
   // Agent function
   'function setRiskScore(uint256 txId, uint256 score, string calldata reason) external',
+  // Guardian functions
+  'function approve(uint256 txId) external',
+  'function cancel(uint256 txId) external',
   // Views
   'function owner() external view returns (address)',
   'function threshold() external view returns (uint256)',

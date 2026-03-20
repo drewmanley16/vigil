@@ -1,8 +1,9 @@
 'use client';
 
 import { useWatchContractEvent } from 'wagmi';
-import { useState } from 'react';
-import { formatEther } from 'viem';
+import { useState, useEffect } from 'react';
+import { formatEther, createPublicClient, http } from 'viem';
+import { baseSepolia } from 'wagmi/chains';
 import { GUARDIAN_WALLET_ABI, CONTRACT_ADDRESS } from '@/lib/contract';
 import { RiskBadge, riskLevelFromScore } from './RiskBadge';
 
@@ -17,20 +18,55 @@ interface FeedItem {
   hash: string;
 }
 
+const client = createPublicClient({ chain: baseSepolia, transport: http('https://sepolia.base.org') });
+
 function truncate(addr: string) {
   return `${addr.slice(0, 8)}…${addr.slice(-6)}`;
 }
 
 export function TransactionFeed() {
   const [items, setItems] = useState<FeedItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load historical events once on mount
+  useEffect(() => {
+    if (!CONTRACT_ADDRESS) { setLoading(false); return; }
+    async function fetchHistory() {
+      try {
+        const block = await client.getBlockNumber();
+        const fromBlock = block > 50000n ? block - 50000n : 0n;
+        const [proposed, direct, riskSet] = await Promise.all([
+          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionProposed', fromBlock }),
+          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'DirectTransfer', fromBlock }),
+          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'RiskScoreSet', fromBlock }),
+        ]);
+
+        const initial: FeedItem[] = [
+          ...proposed.map((log) => { const { txId, to, value, timestamp } = log.args as any; return { type: 'proposed' as const, txId, to, value, timestamp, hash: log.transactionHash }; }),
+          ...direct.map((log) => { const { to, value, timestamp } = log.args as any; return { type: 'direct' as const, to, value, timestamp, hash: log.transactionHash }; }),
+        ].sort((a, b) => Number(b.timestamp) - Number(a.timestamp)).slice(0, 50);
+
+        // Apply risk scores
+        for (const log of riskSet) {
+          const { txId, score, reason } = log.args as any;
+          const item = initial.find((i) => i.txId === txId);
+          if (item) { item.riskScore = Number(score); item.riskReason = reason; }
+        }
+        setItems(initial);
+      } catch (e) {
+        console.error('Failed to fetch history', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchHistory();
+  }, []);
 
   const addItem = (item: FeedItem) =>
-    setItems((prev) => [item, ...prev].slice(0, 50));
+    setItems((prev) => [item, ...prev].filter((x, i, arr) => arr.findIndex(y => y.hash === x.hash && y.txId === x.txId) === i).slice(0, 50));
 
   const updateRisk = (txId: bigint, riskScore: number, riskReason: string) =>
-    setItems((prev) =>
-      prev.map((item) => item.txId === txId ? { ...item, riskScore, riskReason } : item)
-    );
+    setItems((prev) => prev.map((item) => item.txId === txId ? { ...item, riskScore, riskReason } : item));
 
   useWatchContractEvent({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionProposed',
     onLogs: (logs) => { for (const log of logs) { const { txId, to, value, timestamp } = log.args as any; addItem({ type: 'proposed', txId, to, value, timestamp, hash: log.transactionHash }); } },
@@ -42,13 +78,24 @@ export function TransactionFeed() {
     onLogs: (logs) => { for (const log of logs) { const { txId, score, reason } = log.args as any; updateRisk(txId, Number(score), reason); } },
   });
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-12 text-slate-600">
+        <div className="w-8 h-8 rounded-full border border-slate-800 flex items-center justify-center">
+          <span className="w-2 h-2 rounded-full bg-cyan-700 pulse-dot" />
+        </div>
+        <p className="section-label">Loading transactions…</p>
+      </div>
+    );
+  }
+
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 py-12 text-slate-600">
         <div className="w-8 h-8 rounded-full border border-slate-800 flex items-center justify-center">
           <span className="w-2 h-2 rounded-full bg-slate-700 pulse-dot" />
         </div>
-        <p className="section-label">Watching for activity</p>
+        <p className="section-label">No transactions yet</p>
       </div>
     );
   }

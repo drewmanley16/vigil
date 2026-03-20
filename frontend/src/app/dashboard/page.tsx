@@ -5,6 +5,7 @@ import { TransactionFeed } from '@/components/TransactionFeed';
 import { PendingApprovals } from '@/components/PendingApprovals';
 import { AlertHistory } from '@/components/AlertHistory';
 import { ConnectButton } from '@/components/ConnectWallet';
+import { ContractStats } from '@/components/ContractStats';
 import Link from 'next/link';
 
 function Panel({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
@@ -38,14 +39,22 @@ export default function DashboardPage() {
             <span className="w-px h-4 bg-white/10" />
             <span className="font-display text-xs text-slate-500 font-medium">Guardian Console</span>
           </div>
-          <ConnectButton />
+          <div className="flex items-center gap-3">
+            <Link href="/setup" className="font-display text-xs text-slate-600 hover:text-cyan-400 transition-colors">
+              Setup →
+            </Link>
+            <ConnectButton />
+          </div>
         </div>
       </header>
 
       <div className="max-w-6xl mx-auto px-5 py-6">
 
+        {/* Stats bar */}
+        <ContractStats />
+
         {!isConnected && (
-          <div className="mb-5 flex items-center gap-3 px-4 py-3 rounded-lg border border-yellow-500/20 bg-yellow-950/10">
+          <div className="mb-5 flex items-center gap-3 px-4 py-3 rounded-xl border border-yellow-500/20 bg-yellow-950/10">
             <span className="text-sm">⚠️</span>
             <p className="font-body text-sm text-yellow-400/80">
               Connect your guardian wallet to approve or cancel pending transactions.
@@ -74,12 +83,19 @@ export default function DashboardPage() {
 
         {/* Footer */}
         <div className="mt-8 pt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-3">
-          <span className="font-mono text-[11px] text-slate-700">
-            CONTRACT · 0x38d5d97C29440C7a50cCc489928bC36392fb4981
-          </span>
-          <span className="font-mono text-[11px] text-slate-700">
-            ERC-8004 AGENT #2279 · BASE SEPOLIA
-          </span>
+          <div className="flex items-center gap-4">
+            <span className="font-mono text-[11px] text-slate-700">
+              ERC-8004 AGENT #2279
+            </span>
+            <span className="font-mono text-[11px] text-slate-700">
+              VENICE AI · PRIVATE INFERENCE
+            </span>
+          </div>
+          <a href="https://sepolia.basescan.org/address/0x38d5d97C29440C7a50cCc489928bC36392fb4981"
+            target="_blank" rel="noopener noreferrer"
+            className="font-mono text-[11px] text-slate-700 hover:text-cyan-600 transition-colors">
+            View on BaseScan ↗
+          </a>
         </div>
       </div>
     </div>

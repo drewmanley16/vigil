@@ -1,14 +1,41 @@
 'use client';
 
 import { useWatchContractEvent } from 'wagmi';
-import { useState } from 'react';
-import { formatEther } from 'viem';
+import { useState, useEffect } from 'react';
+import { formatEther, createPublicClient, http } from 'viem';
+import { baseSepolia } from 'wagmi/chains';
 import { GUARDIAN_WALLET_ABI, CONTRACT_ADDRESS } from '@/lib/contract';
 
 interface AlertItem { to: string; value: bigint; reason: string; hash: string; time: Date; }
 
+const client = createPublicClient({ chain: baseSepolia, transport: http('https://sepolia.base.org') });
+
 export function AlertHistory() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!CONTRACT_ADDRESS) { setLoading(false); return; }
+    async function fetchHistory() {
+      try {
+        const block = await client.getBlockNumber();
+        const fromBlock = block > 50000n ? block - 50000n : 0n;
+        const logs = await client.getContractEvents({
+          address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'SuspiciousActivityFlagged', fromBlock,
+        });
+        const historical: AlertItem[] = logs.map((log) => {
+          const { to, value, reason } = log.args as any;
+          return { to, value, reason, hash: log.transactionHash, time: new Date() };
+        }).reverse();
+        setAlerts(historical);
+      } catch (e) {
+        console.error('Failed to fetch alert history', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchHistory();
+  }, []);
 
   useWatchContractEvent({
     address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'SuspiciousActivityFlagged',
@@ -19,6 +46,17 @@ export function AlertHistory() {
       }
     },
   });
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-10 text-slate-600">
+        <div className="w-8 h-8 rounded-full border border-slate-800 flex items-center justify-center text-base">
+          <span className="w-2 h-2 rounded-full bg-cyan-700 pulse-dot" />
+        </div>
+        <p className="section-label">Loading alerts…</p>
+      </div>
+    );
+  }
 
   if (alerts.length === 0) {
     return (

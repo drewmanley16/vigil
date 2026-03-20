@@ -2,13 +2,13 @@ import Link from 'next/link';
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-grid bg-radial-cyan scanlines flex flex-col items-center justify-center px-4 relative overflow-hidden">
+    <main className="min-h-screen bg-grid bg-radial-cyan scanlines flex flex-col items-center px-4 relative overflow-hidden">
 
       {/* Ambient glows */}
       <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-cyan-500/5 rounded-full blur-3xl" />
       <div className="pointer-events-none absolute bottom-1/4 right-1/4 w-48 h-48 bg-blue-600/5 rounded-full blur-3xl" />
 
-      <div className="relative z-10 max-w-xl w-full text-center">
+      <div className="relative z-10 max-w-xl w-full text-center pt-20 pb-24">
 
         {/* Icon */}
         <div className="mb-8 relative inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">
@@ -50,20 +50,54 @@ export default function Home() {
         </div>
 
         {/* CTAs */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-16">
           <Link href="/setup" className="btn-primary glow-cyan">
-            Deploy Protection →
+            Add a Guardian →
           </Link>
           <Link href="/dashboard" className="btn-ghost">
-            Guardian Dashboard
+            View Dashboard
           </Link>
         </div>
 
+        {/* How it works */}
+        <div className="text-left mb-12">
+          <p className="section-label text-center mb-6">How it works</p>
+          <div className="space-y-3">
+            {[
+              {
+                n: '01',
+                title: 'Deploy the GuardianWallet',
+                desc: "A smart contract on Base acts as a proxy for your family member's wallet. Transactions above your threshold are automatically held in escrow.",
+              },
+              {
+                n: '02',
+                title: 'Vigil AI monitors every transaction',
+                desc: "Our agent analyzes each transaction using Venice AI — a private, no-retention LLM. It scores risk based on recipient, amount, time, and behavior patterns.",
+              },
+              {
+                n: '03',
+                title: 'Guardians approve or cancel',
+                desc: 'When a suspicious transaction is flagged, you get a Telegram alert with Venice\'s reasoning. Open the dashboard, review it, and approve or cancel with one click.',
+              },
+            ].map((step) => (
+              <div key={step.n} className="card p-4 flex gap-4">
+                <div className="w-7 h-7 rounded-lg bg-cyan-950/50 border border-cyan-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="font-display text-[10px] font-bold text-cyan-400">{step.n}</span>
+                </div>
+                <div>
+                  <p className="font-display text-sm font-semibold text-white mb-1">{step.title}</p>
+                  <p className="font-body text-xs text-slate-500 leading-relaxed">{step.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Trust badges */}
-        <div className="flex items-center justify-center gap-3 mt-10 flex-wrap">
+        <div className="flex items-center justify-center gap-3 flex-wrap">
           {[
             { dot: 'bg-cyan-400', label: 'Live on Base Sepolia' },
-            { dot: 'bg-emerald-400', label: 'Venice AI' },
+            { dot: 'bg-emerald-400', label: 'Venice AI · No data retention' },
             { dot: 'bg-purple-400', label: 'ERC-8004 Agent #2279' },
           ].map((b) => (
             <div key={b.label} className="flex items-center gap-1.5">

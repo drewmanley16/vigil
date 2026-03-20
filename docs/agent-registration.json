@@ -26,6 +26,7 @@
   },
   "network": "base",
   "chains": [8453, 84532],
+  "agentWallet": "0x5DacE6e950F3e8c18684395B518EdE2465a895b0",
   "contact": {
     "telegram": "@drewmanley16"
   }

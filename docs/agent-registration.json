@@ -6,11 +6,11 @@
   "services": [
     {
       "name": "web",
-      "endpoint": "https://vigil.vercel.app"
+      "endpoint": "https://vigil-guardian.vercel.app"
     },
     {
       "name": "dashboard",
-      "endpoint": "https://vigil.vercel.app/dashboard"
+      "endpoint": "https://vigil-guardian.vercel.app/dashboard"
     }
   ],
   "x402Support": false,

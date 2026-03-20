@@ -54,7 +54,7 @@ export async function sendTelegramAlert(
   botToken: string,
   chatId: string,
   contractAddress: string,
-  dashboardUrl: string = 'https://vigil.vercel.app/dashboard'
+  dashboardUrl: string = 'https://vigil-guardian.vercel.app/dashboard'
 ): Promise<void> {
   const message = formatMessage(bundle, contractAddress, dashboardUrl);
 

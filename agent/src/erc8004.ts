@@ -73,7 +73,7 @@ function buildFeedbackPayload(agentId: number, bundle: AnalysisBundle, registryA
     valueDecimals: 0,
     tag1: 'riskAnalysis',
     tag2: bundle.veniceResult.riskLevel,
-    endpoint: 'https://vigil.vercel.app/dashboard',
+    endpoint: 'https://vigil-guardian.vercel.app/dashboard',
     txHash: bundle.transaction.hash,
     recommendedAction: bundle.veniceResult.recommendedAction,
     signals: bundle.signals.filter(s => s.triggered).map(s => s.signal),
@@ -118,7 +118,7 @@ export async function emitFeedbackReceipt(
         0,                               // valueDecimals
         'riskAnalysis',                  // tag1
         bundle.veniceResult.riskLevel,   // tag2
-        'https://vigil.vercel.app/dashboard', // endpoint
+        'https://vigil-guardian.vercel.app/dashboard', // endpoint
         '',                              // feedbackURI (empty, use hash only)
         feedbackHash                     // feedbackHash
       );

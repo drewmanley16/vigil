@@ -22,28 +22,52 @@ function formatMessage(bundle: AnalysisBundle, contractAddress: string, dashboar
   const { transaction: tx, signals, veniceResult } = bundle;
   const emoji = RISK_EMOJI[veniceResult.riskLevel];
   const valueEth = parseFloat(ethers.formatEther(tx.value)).toFixed(4);
-  const triggeredSignals = signals.filter((s) => s.triggered).map((s) => `• ${s.signal}`).join('\n');
+  const triggeredSignals = signals.filter((s) => s.triggered);
   const isEscrowed = tx.txId !== undefined;
   const reasoning = escapeHtml(veniceResult.reasoning);
-  const toAddr = escapeHtml(truncateAddress(tx.to ?? 'unknown'));
+  const toAddr = escapeHtml(tx.to ?? 'unknown');
+  const score = veniceResult.riskScore;
+
+  // Score bar: 10 blocks
+  const filled = Math.round(score / 10);
+  const scoreBar = '█'.repeat(filled) + '░'.repeat(10 - filled);
+
+  // Signal chips
+  const signalMap: Record<string, string> = {
+    FIRST_TIME_RECIPIENT: '👤 New recipient',
+    ABOVE_THRESHOLD: '💰 Above threshold',
+    UNUSUAL_HOUR: '🌙 Unusual hour',
+    RAPID_SUCCESSION: '⚡ Rapid succession',
+    CONTRACT_INTERACTION: '📜 Contract call',
+  };
+  const signalList = triggeredSignals.length
+    ? triggeredSignals.map((s) => signalMap[s.signal] ?? s.signal).join('  ·  ')
+    : 'None';
+
+  const header = isEscrowed
+    ? `🔒 <b>FUNDS HELD IN ESCROW</b>`
+    : `${emoji} <b>VIGIL ALERT</b>`;
 
   const lines = [
-    `${emoji} <b>VIGIL ALERT — ${veniceResult.riskLevel} RISK</b>`,
+    header,
+    `<code>──────────────────────</code>`,
     ``,
-    `💸 <b>Amount:</b> ${valueEth} ETH`,
-    `📬 <b>To:</b> <code>${toAddr}</code>`,
-    `🤖 <b>Venice AI Score:</b> ${veniceResult.riskScore}/100`,
-    `📋 <b>Assessment:</b> ${reasoning}`,
+    `${emoji} <b>${veniceResult.riskLevel} RISK</b>  ·  Score <b>${score}/100</b>`,
+    `<code>${scoreBar}</code>`,
     ``,
-    `<b>Signals:</b>`,
-    triggeredSignals || '• None',
+    `<b>Amount</b>   <code>${valueEth} ETH</code>`,
+    `<b>To</b>       <code>${toAddr}</code>`,
+    isEscrowed ? `<b>Tx ID</b>    <code>#${tx.txId}</code>` : '',
     ``,
+    `<b>Venice AI:</b>`,
+    `<i>${reasoning}</i>`,
+    ``,
+    `<b>Signals:</b>  ${signalList}`,
+    ``,
+    `<code>──────────────────────</code>`,
     isEscrowed
-      ? `🔒 <b>Status:</b> ESCROWED — guardian action required (Tx #${tx.txId})`
-      : `⚡ <b>Status:</b> Direct transfer (already sent)`,
-    ``,
-    `🔗 <a href="${dashboardUrl}">View Dashboard</a>`,
-    isEscrowed ? `\n⚠️ Open the dashboard to <b>Approve</b> or <b>Cancel</b> this transaction.` : '',
+      ? `⚠️ <b>Action required.</b> Open the dashboard to approve or cancel.\n\n<a href="${dashboardUrl}">→ Open Guardian Console</a>`
+      : `<a href="${dashboardUrl}">→ Open Guardian Console</a>`,
   ];
 
   return lines.filter((l) => l !== '').join('\n');

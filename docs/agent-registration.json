@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "erc8004-v1",
+  "name": "Vigil",
+  "description": "Elder financial fraud prevention agent. Monitors a GuardianWallet smart contract on Base, analyzes transactions using Venice API (private, no-retention inference), and alerts designated guardians via Telegram. Large transactions are escrowed until a guardian co-signs.",
+  "version": "1.0.0",
+  "author": "Drew Manley",
+  "repository": "https://github.com/drewmanley16/vigil",
+  "capabilities": [
+    "transaction-monitoring",
+    "risk-analysis",
+    "guardian-alerting",
+    "on-chain-attestation"
+  ],
+  "trustModel": {
+    "canInitiateTransfers": false,
+    "canHoldFunds": false,
+    "scopedTo": ["setRiskScore()"],
+    "privateInference": true,
+    "dataRetention": "none"
+  },
+  "inferenceProvider": {
+    "name": "Venice AI",
+    "model": "llama-3.3-70b",
+    "dataRetention": false,
+    "endpoint": "https://api.venice.ai/api/v1/chat/completions"
+  },
+  "network": "base",
+  "chains": [8453, 84532],
+  "contact": {
+    "telegram": "@drewmanley16"
+  }
+}

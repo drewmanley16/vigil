@@ -1,0 +1,25 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+dist/
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/
+
+# Data
+agent/data/
+
+# OS
+.DS_Store

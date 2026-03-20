@@ -14,30 +14,36 @@ function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
 
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function formatMessage(bundle: AnalysisBundle, contractAddress: string, dashboardUrl: string): string {
-  const { transaction: tx, signals, veniceResult, compositeScore } = bundle;
+  const { transaction: tx, signals, veniceResult } = bundle;
   const emoji = RISK_EMOJI[veniceResult.riskLevel];
   const valueEth = parseFloat(ethers.formatEther(tx.value)).toFixed(4);
-  const triggeredSignals = signals.filter((s) => s.triggered).map((s) => `• ${s.signal}: ${s.description}`).join('\n');
+  const triggeredSignals = signals.filter((s) => s.triggered).map((s) => `• ${s.signal}`).join('\n');
   const isEscrowed = tx.txId !== undefined;
+  const reasoning = escapeHtml(veniceResult.reasoning);
+  const toAddr = escapeHtml(truncateAddress(tx.to ?? 'unknown'));
 
   const lines = [
-    `${emoji} *VIGIL ALERT — ${veniceResult.riskLevel} RISK*`,
+    `${emoji} <b>VIGIL ALERT — ${veniceResult.riskLevel} RISK</b>`,
     ``,
-    `💸 *Amount:* ${valueEth} ETH`,
-    `📬 *To:* \`${truncateAddress(tx.to ?? 'unknown')}\``,
-    `🤖 *Venice AI Score:* ${veniceResult.riskScore}/100`,
-    `📋 *Assessment:* ${veniceResult.reasoning}`,
+    `💸 <b>Amount:</b> ${valueEth} ETH`,
+    `📬 <b>To:</b> <code>${toAddr}</code>`,
+    `🤖 <b>Venice AI Score:</b> ${veniceResult.riskScore}/100`,
+    `📋 <b>Assessment:</b> ${reasoning}`,
     ``,
-    `*Signals Detected:*`,
+    `<b>Signals:</b>`,
     triggeredSignals || '• None',
     ``,
     isEscrowed
-      ? `🔒 *Status:* ESCROWED — guardian action required (Tx #${tx.txId})`
-      : `⚡ *Status:* Direct transfer (already sent)`,
+      ? `🔒 <b>Status:</b> ESCROWED — guardian action required (Tx #${tx.txId})`
+      : `⚡ <b>Status:</b> Direct transfer (already sent)`,
     ``,
-    `🔗 [View Dashboard](${dashboardUrl})`,
-    isEscrowed ? `\n⚠️ Open the dashboard to *Approve* or *Cancel* this transaction.` : '',
+    `🔗 <a href="${dashboardUrl}">View Dashboard</a>`,
+    isEscrowed ? `\n⚠️ Open the dashboard to <b>Approve</b> or <b>Cancel</b> this transaction.` : '',
   ];
 
   return lines.filter((l) => l !== '').join('\n');
@@ -56,7 +62,7 @@ export async function sendTelegramAlert(
   const body = {
     chat_id: chatId,
     text: message,
-    parse_mode: 'Markdown',
+    parse_mode: 'HTML',
     disable_web_page_preview: false,
   };
 

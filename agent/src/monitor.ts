@@ -1,15 +1,15 @@
 import { ethers } from 'ethers';
 import fs from 'fs';
-import path from 'path';
 import { Transaction, Config, AnalysisBundle } from './types.js';
 import { detectSignals, computeCompositeScore } from './signals.js';
 import { analyzeWithVenice } from './analyzer.js';
 import { sendTelegramAlert } from './alerts.js';
-import { GUARDIAN_WALLET_ABI, buildContract, setRiskScoreOnChain } from './onchain.js';
+import { buildContract, setRiskScoreOnChain } from './onchain.js';
 import { emitFeedbackReceipt } from './erc8004.js';
 
 let seenAddresses: Set<string>;
 let lastProcessedBlock: number;
+const processedTxHashes = new Set<string>();
 
 function loadSeenAddresses(filePath: string): Set<string> {
   try {
@@ -36,62 +36,12 @@ export async function startMonitor(
   const contract = buildContract(config.contractAddress, agentWallet);
   const contractReadOnly = buildContract(config.contractAddress, provider);
 
-  lastProcessedBlock = await provider.getBlockNumber();
+  lastProcessedBlock = (await provider.getBlockNumber()) - 1;
   console.log(`[Monitor] Starting from block ${lastProcessedBlock}`);
   console.log(`[Monitor] Watching contract ${config.contractAddress}`);
 
-  // ─── Real-time event subscriptions ─────────────────────────────────────────
-
-  contractReadOnly.on(
-    'TransactionProposed',
-    async (txId, to, value, data, timestamp, event) => {
-      console.log(`[Event] TransactionProposed txId=${txId} to=${to} value=${ethers.formatEther(value)} ETH`);
-      const blockNumber = event.log.blockNumber;
-
-      const tx: Transaction = {
-        hash: event.log.transactionHash,
-        from: config.contractAddress, // contract is the sender
-        to,
-        value,
-        data,
-        blockNumber,
-        timestamp: Number(timestamp),
-        isContractInteraction: data !== '0x' && data !== '',
-        isFirstTimeRecipient: !seenAddresses.has(to.toLowerCase()),
-        txId: Number(txId),
-      };
-
-      await processTransaction(tx, contract, agentWallet, config, agentId, erc8004RegistryAddress);
-    }
-  );
-
-  contractReadOnly.on(
-    'DirectTransfer',
-    async (to, value, timestamp, event) => {
-      console.log(`[Event] DirectTransfer to=${to} value=${ethers.formatEther(value)} ETH`);
-      const blockNumber = event.log.blockNumber;
-
-      const tx: Transaction = {
-        hash: event.log.transactionHash,
-        from: config.contractAddress,
-        to,
-        value,
-        data: '0x',
-        blockNumber,
-        timestamp: Number(timestamp),
-        isContractInteraction: false,
-        isFirstTimeRecipient: !seenAddresses.has(to.toLowerCase()),
-      };
-
-      await processTransaction(tx, contract, agentWallet, config, agentId, erc8004RegistryAddress);
-    }
-  );
-
-  console.log('[Monitor] Real-time event subscriptions active');
-
-  // ─── Polling fallback ───────────────────────────────────────────────────────
-
-  setInterval(async () => {
+  // Poll for new events every interval (public RPCs don't support eth_filters)
+  const poll = async () => {
     try {
       const currentBlock = await provider.getBlockNumber();
       if (currentBlock <= lastProcessedBlock) return;
@@ -99,29 +49,70 @@ export async function startMonitor(
       const fromBlock = lastProcessedBlock + 1;
       const toBlock = currentBlock;
 
-      const proposedLogs = await contractReadOnly.queryFilter(
-        contractReadOnly.filters.TransactionProposed(),
-        fromBlock,
-        toBlock
-      );
+      const [proposedLogs, directLogs] = await Promise.all([
+        contractReadOnly.queryFilter(contractReadOnly.filters.TransactionProposed(), fromBlock, toBlock),
+        contractReadOnly.queryFilter(contractReadOnly.filters.DirectTransfer(), fromBlock, toBlock),
+      ]);
 
-      const directLogs = await contractReadOnly.queryFilter(
-        contractReadOnly.filters.DirectTransfer(),
-        fromBlock,
-        toBlock
-      );
+      for (const log of proposedLogs) {
+        const e = log as ethers.EventLog;
+        const { txId, to, value, data, timestamp } = e.args;
+        const txHash = log.transactionHash;
+        if (processedTxHashes.has(txHash)) continue;
+        processedTxHashes.add(txHash);
 
-      if (proposedLogs.length > 0 || directLogs.length > 0) {
-        console.log(`[Poll] Found ${proposedLogs.length} proposed + ${directLogs.length} direct txns in blocks ${fromBlock}-${toBlock}`);
+        console.log(`[Event] TransactionProposed txId=${txId} to=${to} value=${ethers.formatEther(value)} ETH`);
+
+        const tx: Transaction = {
+          hash: txHash,
+          from: config.contractAddress,
+          to,
+          value,
+          data,
+          blockNumber: log.blockNumber,
+          timestamp: Number(timestamp),
+          isContractInteraction: data !== '0x' && data !== '',
+          isFirstTimeRecipient: !seenAddresses.has(to.toLowerCase()),
+          txId: Number(txId),
+        };
+
+        await processTransaction(tx, contract, agentWallet, config, agentId, erc8004RegistryAddress);
+      }
+
+      for (const log of directLogs) {
+        const e = log as ethers.EventLog;
+        const { to, value, timestamp } = e.args;
+        const txHash = log.transactionHash;
+        if (processedTxHashes.has(txHash)) continue;
+        processedTxHashes.add(txHash);
+
+        console.log(`[Event] DirectTransfer to=${to} value=${ethers.formatEther(value)} ETH`);
+
+        const tx: Transaction = {
+          hash: txHash,
+          from: config.contractAddress,
+          to,
+          value,
+          data: '0x',
+          blockNumber: log.blockNumber,
+          timestamp: Number(timestamp),
+          isContractInteraction: false,
+          isFirstTimeRecipient: !seenAddresses.has(to.toLowerCase()),
+        };
+
+        await processTransaction(tx, contract, agentWallet, config, agentId, erc8004RegistryAddress);
       }
 
       lastProcessedBlock = currentBlock;
     } catch (err) {
-      console.error('[Poll] Error during poll:', err);
+      console.error('[Poll] Error:', err);
     }
-  }, config.pollIntervalMs);
+  };
 
-  console.log(`[Monitor] Polling fallback every ${config.pollIntervalMs / 1000}s`);
+  // Run immediately then on interval
+  await poll();
+  setInterval(poll, config.pollIntervalMs);
+  console.log(`[Monitor] Polling every ${config.pollIntervalMs / 1000}s`);
 }
 
 async function processTransaction(
@@ -135,8 +126,9 @@ async function processTransaction(
   try {
     const signals = detectSignals(tx);
     const compositeScore = computeCompositeScore(signals);
+    const triggered = signals.filter(s => s.triggered).map(s => s.signal);
 
-    console.log(`[Analysis] compositeScore=${compositeScore} signals=[${signals.filter(s => s.triggered).map(s => s.signal).join(',')}]`);
+    console.log(`[Analysis] compositeScore=${compositeScore} signals=[${triggered.join(',')}]`);
 
     const veniceResult = await analyzeWithVenice(tx, signals, compositeScore, config.veniceApiKey);
 
@@ -148,7 +140,7 @@ async function processTransaction(
       saveSeenAddresses(config.seenAddressesPath, seenAddresses);
     }
 
-    // Write risk score on-chain for proposed (escrowed) transactions
+    // Write risk score on-chain for escrowed transactions
     if (tx.txId !== undefined) {
       try {
         await setRiskScoreOnChain(contract, tx.txId, veniceResult.riskScore, veniceResult.reasoning);
@@ -158,10 +150,12 @@ async function processTransaction(
     }
 
     // Emit ERC-8004 feedback receipt
-    try {
-      await emitFeedbackReceipt(erc8004RegistryAddress, signer, agentId, bundle);
-    } catch (err) {
-      console.error('[ERC-8004] Failed to emit receipt:', err);
+    if (erc8004RegistryAddress) {
+      try {
+        await emitFeedbackReceipt(erc8004RegistryAddress, signer, agentId, bundle);
+      } catch (err) {
+        console.error('[ERC-8004] Failed to emit receipt:', err);
+      }
     }
 
     // Send Telegram alert if not clearly safe

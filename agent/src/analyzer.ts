@@ -68,8 +68,8 @@ export async function analyzeWithVenice(
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
         max_tokens: 300,
-        include_venice_system_prompt: false,
         venice_parameters: {
+          include_venice_system_prompt: false,
           enable_web_search: 'off',
           strip_thinking_response: true,
         },

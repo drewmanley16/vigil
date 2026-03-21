@@ -23,6 +23,7 @@
     "dashboard": "https://vigil-guardian.vercel.app/dashboard",
     "health": "https://vigil-agent-production.up.railway.app/health",
     "stats": "https://vigil-agent-production.up.railway.app/stats",
+    "agentLog": "https://vigil-agent-production.up.railway.app/agent-log",
     "guardianReport": "https://vigil-agent-production.up.railway.app/guardian-report"
   },
   "x402": {

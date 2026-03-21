@@ -2,6 +2,7 @@ import { createServer } from 'http';
 import { createPublicClient, http, formatEther } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import { getStats } from './stats.js';
+import { getActivityLog, appendX402Session } from './activity-log.js';
 
 // ─── x402 Payment Configuration ───────────────────────────────────────────────
 const AGENT_WALLET = process.env.AGENT_WALLET_ADDRESS ?? '0x5DacE6e950F3e8c18684395B518EdE2465a895b0';
@@ -151,6 +152,10 @@ export function startHttpServer(port: number = 3001): void {
       res.writeHead(200);
       res.end(JSON.stringify(getStats()));
 
+    } else if (url === '/agent-log') {
+      res.writeHead(200);
+      res.end(JSON.stringify(getActivityLog()));
+
     } else if (url === '/guardian-report') {
       // ── x402 Payment-Gated Endpoint ──────────────────────────────────────
       const paymentHeader = req.headers['x-payment'];
@@ -163,30 +168,64 @@ export function startHttpServer(port: number = 3001): void {
         return;
       }
 
-      // Verify the payment header is a plausible base64-encoded payment proof
+      // Verify the payment proof via the x402 facilitator
+      const paymentStr = paymentHeader as string;
+      let decoded: Record<string, unknown>;
       try {
-        const decoded = Buffer.from(paymentHeader as string, 'base64').toString('utf-8');
-        const proof = JSON.parse(decoded) as Record<string, unknown>;
-        if (!proof.payload && !proof.signature && !proof.scheme) {
-          throw new Error('Malformed payment proof');
-        }
+        decoded = JSON.parse(Buffer.from(paymentStr, 'base64').toString('utf-8'));
       } catch {
         res.writeHead(400);
         res.end(JSON.stringify({ error: 'Invalid X-PAYMENT header — expected base64-encoded x402 payment proof' }));
         return;
       }
 
+      // Call the Coinbase x402 facilitator for real on-chain verification
+      let paymentVerified = false;
+      let verifyNote = '';
+      try {
+        const facilitatorRes = await fetch('https://x402.org/facilitator/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            x402Version: 1,
+            paymentPayload: paymentStr,
+            paymentRequirements: X402_PAYMENT_REQUIRED.accepts[0],
+          }),
+        });
+        const facilitatorData = await facilitatorRes.json() as { isValid?: boolean; invalidReason?: string };
+        paymentVerified = facilitatorData.isValid === true;
+        if (!paymentVerified) {
+          verifyNote = facilitatorData.invalidReason ?? 'Facilitator rejected payment';
+        }
+      } catch (facilitatorErr) {
+        // Facilitator unreachable — fall back to format-only validation for demo resilience
+        console.warn('[x402] Facilitator unreachable, falling back to format check:', facilitatorErr);
+        paymentVerified = typeof decoded.payload !== 'undefined' || typeof decoded.signature !== 'undefined';
+        verifyNote = 'Facilitator offline — format-validated only';
+      }
+
+      if (!paymentVerified) {
+        res.writeHead(402);
+        res.end(JSON.stringify({ ...X402_PAYMENT_REQUIRED, error: `Payment invalid: ${verifyNote}` }));
+        return;
+      }
+
       // Payment verified — generate Venice report
+      const reportStart = Date.now();
       try {
         const result = await generateVeniceReport();
+        const veniceCallMs = Date.now() - reportStart;
+        appendX402Session('100', true, veniceCallMs);
         res.writeHead(200);
         res.end(JSON.stringify({
           ...result,
           generatedAt: new Date().toISOString(),
           paymentAccepted: true,
+          paymentNote: verifyNote || 'Verified via x402.org facilitator',
           x402Version: 1,
         }));
       } catch (err) {
+        appendX402Session('100', false, Date.now() - reportStart);
         res.writeHead(500);
         res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'Report generation failed' }));
       }

@@ -18,6 +18,14 @@
     {
       "name": "health",
       "endpoint": "https://vigil-agent-production.up.railway.app/health"
+    },
+    {
+      "name": "agent-log",
+      "endpoint": "https://vigil-agent-production.up.railway.app/agent-log"
+    },
+    {
+      "name": "guardian-report-x402",
+      "endpoint": "https://vigil-agent-production.up.railway.app/guardian-report"
     }
   ],
   "x402Support": true,

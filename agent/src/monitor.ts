@@ -7,6 +7,7 @@ import { sendTelegramAlert, sendPatternAlert } from './alerts.js';
 import { buildContract, setRiskScoreOnChain } from './onchain.js';
 import { emitFeedbackReceipt } from './erc8004.js';
 import { stats } from './stats.js';
+import { initActivityLog, appendActivityLog } from './activity-log.js';
 
 let seenAddresses: Set<string>;
 let processedTxHashes: Set<string>;
@@ -49,9 +50,11 @@ export async function startMonitor(
   processedHashesPath = config.seenAddressesPath.replace('seen_addresses', 'processed_hashes');
   processedTxHashes = loadSet(processedHashesPath);
 
-  // Init stats
+  // Init stats and live activity log
   stats.contractAddress = config.contractAddress;
   stats.agentId = agentId;
+  const activityLogPath = config.seenAddressesPath.replace('seen_addresses.json', 'agent_log.json');
+  initActivityLog(activityLogPath, agentId, config.contractAddress);
 
   const provider = new ethers.JsonRpcProvider(config.rpcUrl);
   const agentWallet = new ethers.Wallet(config.agentPrivateKey, provider);
@@ -216,9 +219,36 @@ async function processTransaction(
     }
 
     // Send Telegram alert if not clearly safe
-    if (veniceResult.recommendedAction !== 'ALLOW') {
+    const telegramSent = veniceResult.recommendedAction !== 'ALLOW';
+    if (telegramSent) {
       await sendTelegramAlert(bundle, config.telegramBotToken, config.telegramChatId, config.contractAddress);
     }
+
+    // Append to live activity log
+    appendActivityLog(
+      {
+        ts: new Date().toISOString(),
+        type: tx.txId !== undefined ? 'TransactionProposed' : 'DirectTransfer',
+        txId: tx.txId ?? null,
+        value: tx.value.toString(),
+        valueFmt: `${parseFloat(ethers.formatEther(tx.value)).toFixed(6)} ETH`,
+        signals: triggered,
+        veniceScore: veniceResult.riskScore,
+        veniceLevel: veniceResult.riskLevel,
+        veniceReasoning: veniceResult.reasoning,
+        action: veniceResult.recommendedAction,
+        onChainSetRiskScore: tx.txId !== undefined,
+        telegramAlertSent: telegramSent,
+        erc8004FeedbackHash: null,
+      },
+      {
+        threatsDetected: veniceResult.recommendedAction !== 'ALLOW' ? 1 : 0,
+        escrowInterceptions: tx.txId !== undefined ? 1 : 0,
+        directTransfers: tx.txId === undefined ? 1 : 0,
+        veniceCallsMade: 1,
+        totalEthEscrowedWei: tx.txId !== undefined ? tx.value.toString() : '0',
+      },
+    );
 
     // Check for session-level pattern and send a separate pattern alert
     // Trigger after 3rd+ suspicious transaction in the session window

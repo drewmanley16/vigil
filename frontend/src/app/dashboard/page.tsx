@@ -6,6 +6,8 @@ import { PendingApprovals } from '@/components/PendingApprovals';
 import { AlertHistory } from '@/components/AlertHistory';
 import { ConnectButton } from '@/components/ConnectWallet';
 import { ContractStats } from '@/components/ContractStats';
+import { ImpactStats } from '@/components/ImpactStats';
+import { AgentStatus } from '@/components/AgentStatus';
 import Link from 'next/link';
 
 function Panel({ title, children }: { title: string; icon?: string; children: React.ReactNode }) {
@@ -40,8 +42,9 @@ export default function DashboardPage() {
             <span className="font-display text-xs text-slate-500 font-medium">Guardian Console</span>
           </div>
           <div className="flex items-center gap-3">
+            <AgentStatus />
             <Link href="/demo" className="font-display text-xs text-slate-600 hover:text-yellow-400 transition-colors">
-              Demo Scam →
+              Demo →
             </Link>
             <Link href="/setup" className="font-display text-xs text-slate-600 hover:text-cyan-400 transition-colors">
               Setup →
@@ -55,6 +58,9 @@ export default function DashboardPage() {
 
         {/* Stats bar */}
         <ContractStats />
+
+        {/* Impact metrics from chain events */}
+        <ImpactStats />
 
         {!isConnected && (
           <div className="mb-5 flex items-center gap-3 px-4 py-3 rounded-xl border border-yellow-500/20 bg-yellow-950/10">

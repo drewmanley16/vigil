@@ -4,6 +4,7 @@ import { startMonitor } from './monitor.js';
 import { registerAgent, IDENTITY_REGISTRY_SEPOLIA, IDENTITY_REGISTRY_MAINNET } from './erc8004.js';
 import { startTelegramCallbackHandler } from './alerts.js';
 import { buildContract } from './onchain.js';
+import { startHttpServer } from './server.js';
 import { ethers } from 'ethers';
 
 function requireEnv(key: string): string {
@@ -39,6 +40,10 @@ async function main(): Promise<void> {
   const { dirname } = await import('path');
   mkdirSync(dirname(config.seenAddressesPath), { recursive: true });
 
+  // Start HTTP health/stats server (Railway sets PORT automatically)
+  const httpPort = parseInt(process.env.PORT ?? '3001');
+  startHttpServer(httpPort);
+
   // Register agent on ERC-8004 if registry configured and no agentId saved
   let agentId = parseInt(process.env.AGENT_ID ?? '0');
 
@@ -51,6 +56,15 @@ async function main(): Promise<void> {
     } catch (err) {
       console.warn('[ERC-8004] Registration failed (non-fatal):', err);
     }
+  } else if (agentId > 0) {
+    console.log(`[ERC-8004] Using existing agentId=${agentId}`);
+  }
+
+  // Log ERC-8004 feedback signer status
+  if (process.env.FEEDBACK_SIGNER_KEY) {
+    console.log('[ERC-8004] Feedback signer configured — reputation receipts will be emitted on-chain');
+  } else {
+    console.log('[ERC-8004] No FEEDBACK_SIGNER_KEY — feedback hashes logged via RiskScoreSet events (set FEEDBACK_SIGNER_KEY for on-chain receipts)');
   }
 
   // Start Telegram callback handler so guardian can approve/cancel from the alert message

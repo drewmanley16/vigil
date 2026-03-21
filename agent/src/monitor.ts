@@ -2,15 +2,27 @@ import { ethers } from 'ethers';
 import fs from 'fs';
 import { Transaction, Config, AnalysisBundle } from './types.js';
 import { detectSignals, computeCompositeScore } from './signals.js';
-import { analyzeWithVenice } from './analyzer.js';
-import { sendTelegramAlert } from './alerts.js';
+import { analyzeWithVenice, analyzeSessionPattern, RecentTxSummary } from './analyzer.js';
+import { sendTelegramAlert, sendPatternAlert } from './alerts.js';
 import { buildContract, setRiskScoreOnChain } from './onchain.js';
 import { emitFeedbackReceipt } from './erc8004.js';
+import { stats } from './stats.js';
 
 let seenAddresses: Set<string>;
 let processedTxHashes: Set<string>;
 let lastProcessedBlock: number;
 let processedHashesPath: string;
+
+// Session history for behavioral pattern detection (last 30 minutes)
+const SESSION_WINDOW_MS = 30 * 60 * 1000;
+const sessionHistory: Array<RecentTxSummary & { ts: number }> = [];
+
+function purgeOldSession() {
+  const cutoff = Date.now() - SESSION_WINDOW_MS;
+  while (sessionHistory.length > 0 && sessionHistory[0].ts < cutoff) {
+    sessionHistory.shift();
+  }
+}
 
 function loadSet(filePath: string): Set<string> {
   try {
@@ -37,6 +49,10 @@ export async function startMonitor(
   processedHashesPath = config.seenAddressesPath.replace('seen_addresses', 'processed_hashes');
   processedTxHashes = loadSet(processedHashesPath);
 
+  // Init stats
+  stats.contractAddress = config.contractAddress;
+  stats.agentId = agentId;
+
   const provider = new ethers.JsonRpcProvider(config.rpcUrl);
   const agentWallet = new ethers.Wallet(config.agentPrivateKey, provider);
   const contract = buildContract(config.contractAddress, agentWallet);
@@ -49,6 +65,7 @@ export async function startMonitor(
   // Poll for new events every interval (public RPCs don't support eth_filters)
   const poll = async () => {
     try {
+      stats.lastPollAt = new Date().toISOString();
       const currentBlock = await provider.getBlockNumber();
       if (currentBlock <= lastProcessedBlock) return;
 
@@ -83,6 +100,11 @@ export async function startMonitor(
           txId: Number(txId),
         };
 
+        stats.escrowInterceptions++;
+        stats.transactionsMonitored++;
+        stats.totalEthEscrowedWei += value;
+        stats.totalEthAnalyzedWei += value;
+
         await processTransaction(tx, contract, agentWallet, config, agentId, erc8004RegistryAddress);
       }
 
@@ -108,6 +130,10 @@ export async function startMonitor(
           isFirstTimeRecipient: !seenAddresses.has(to.toLowerCase()),
         };
 
+        stats.directTransfers++;
+        stats.transactionsMonitored++;
+        stats.totalEthAnalyzedWei += value;
+
         await processTransaction(tx, contract, agentWallet, config, agentId, erc8004RegistryAddress);
       }
 
@@ -132,20 +158,42 @@ async function processTransaction(
   erc8004RegistryAddress: string
 ): Promise<void> {
   try {
+    purgeOldSession();
+
     const signals = detectSignals(tx);
     const compositeScore = computeCompositeScore(signals);
     const triggered = signals.filter(s => s.triggered).map(s => s.signal);
 
     console.log(`[Analysis] compositeScore=${compositeScore} signals=[${triggered.join(',')}]`);
 
-    const veniceResult = await analyzeWithVenice(tx, signals, compositeScore, config.veniceApiKey);
+    // Pass recent session history to Venice for contextual analysis
+    const recentHistory = sessionHistory.map(h => ({ ...h }));
+    const veniceResult = await analyzeWithVenice(tx, signals, compositeScore, config.veniceApiKey, recentHistory);
 
     const bundle: AnalysisBundle = { transaction: tx, signals, compositeScore, veniceResult };
+
+    // Record this transaction in session history
+    const summary: RecentTxSummary & { ts: number } = {
+      valueEth: parseFloat(ethers.formatEther(tx.value)).toFixed(4),
+      isFirstTime: tx.isFirstTimeRecipient,
+      riskScore: veniceResult.riskScore,
+      riskLevel: veniceResult.riskLevel,
+      triggeredSignals: triggered,
+      minutesAgo: 0,
+      ts: Date.now(),
+    };
+    sessionHistory.push(summary);
 
     // Record seen address
     if (tx.to) {
       seenAddresses.add(tx.to.toLowerCase());
       saveSeenAddresses(config.seenAddressesPath, seenAddresses);
+    }
+
+    // Update threat stats
+    if (veniceResult.recommendedAction !== 'ALLOW') {
+      stats.threatsDetected++;
+      stats.lastThreatAt = new Date().toISOString();
     }
 
     // Write risk score on-chain for escrowed transactions
@@ -160,7 +208,8 @@ async function processTransaction(
     // Emit ERC-8004 feedback receipt
     if (erc8004RegistryAddress) {
       try {
-        await emitFeedbackReceipt(erc8004RegistryAddress, signer, agentId, bundle);
+        const feedbackSignerKey = process.env.FEEDBACK_SIGNER_KEY;
+        await emitFeedbackReceipt(erc8004RegistryAddress, signer, agentId, bundle, feedbackSignerKey);
       } catch (err) {
         console.error('[ERC-8004] Failed to emit receipt:', err);
       }
@@ -169,6 +218,27 @@ async function processTransaction(
     // Send Telegram alert if not clearly safe
     if (veniceResult.recommendedAction !== 'ALLOW') {
       await sendTelegramAlert(bundle, config.telegramBotToken, config.telegramChatId, config.contractAddress);
+    }
+
+    // Check for session-level pattern and send a separate pattern alert
+    // Trigger after 3rd+ suspicious transaction in the session window
+    const suspiciousInSession = sessionHistory.filter(h => h.riskScore >= 30);
+    if (suspiciousInSession.length >= 3 && veniceResult.recommendedAction !== 'ALLOW') {
+      const summaryForPattern = sessionHistory.map(h => ({
+        ...h,
+        minutesAgo: Math.round((Date.now() - h.ts) / 60000),
+      }));
+
+      const patternSummary = await analyzeSessionPattern(summaryForPattern, config.veniceApiKey);
+      if (patternSummary) {
+        stats.patternAlertsTriggered++;
+        await sendPatternAlert(
+          patternSummary,
+          sessionHistory.length,
+          config.telegramBotToken,
+          config.telegramChatId
+        );
+      }
     }
   } catch (err) {
     console.error('[Monitor] Error processing transaction:', err);

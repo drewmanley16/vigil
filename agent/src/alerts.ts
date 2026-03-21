@@ -122,6 +122,43 @@ export async function sendTelegramAlert(
   }
 }
 
+export async function sendPatternAlert(
+  patternSummary: string,
+  txCount: number,
+  botToken: string,
+  chatId: string
+): Promise<void> {
+  const message = [
+    `⚠️ <b>BEHAVIORAL PATTERN DETECTED</b>`,
+    `<code>──────────────────────</code>`,
+    ``,
+    `<b>Vigil has detected ${txCount} suspicious transactions in the last 30 minutes.</b>`,
+    ``,
+    `<b>Venice AI pattern analysis:</b>`,
+    `<i>${escapeHtml(patternSummary)}</i>`,
+    ``,
+    `<code>──────────────────────</code>`,
+    `⚠️ Consider revoking wallet access if you did not authorize these transactions.`,
+  ].join('\n');
+
+  const url = `${TELEGRAM_API}/bot${botToken}/sendMessage`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML', disable_web_page_preview: true }),
+    });
+    if (!response.ok) {
+      const err = await response.text();
+      console.error(`[Telegram] Pattern alert failed: ${err}`);
+    } else {
+      console.log(`[Telegram] Pattern alert sent — ${txCount} suspicious txns`);
+    }
+  } catch (err) {
+    console.error('[Telegram] Failed to send pattern alert:', err);
+  }
+}
+
 async function answerCallbackQuery(botToken: string, callbackQueryId: string, text: string): Promise<void> {
   await fetch(`${TELEGRAM_API}/bot${botToken}/answerCallbackQuery`, {
     method: 'POST',

@@ -20,7 +20,11 @@
       "endpoint": "https://vigil-agent-production.up.railway.app/health"
     }
   ],
-  "x402Support": false,
+  "x402Support": true,
+  "x402Endpoint": "https://vigil-agent-production.up.railway.app/guardian-report",
+  "x402Asset": "0x0000000000000000000000000000000000000000",
+  "x402MaxAmountRequired": "100",
+  "x402Network": "base-sepolia",
   "active": true,
   "agentWallet": "0x5DacE6e950F3e8c18684395B518EdE2465a895b0",
   "registrations": [

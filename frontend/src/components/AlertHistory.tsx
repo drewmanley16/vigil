@@ -123,9 +123,17 @@ export function AlertHistory() {
 
   if (alerts.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-2 py-10 text-slate-600">
-        <span className="w-2 h-2 rounded-full bg-slate-700" />
-        <p className="section-label">No flags recorded</p>
+      <div className="flex flex-col items-center gap-3 py-8 text-center">
+        <div className="w-9 h-9 rounded-xl border border-emerald-500/20 bg-emerald-950/10 flex items-center justify-center">
+          <span className="text-emerald-500 text-base">✓</span>
+        </div>
+        <div>
+          <p className="font-display text-sm font-semibold text-emerald-400/70 mb-0.5">All clear — no threats detected</p>
+          <p className="font-body text-xs text-slate-600 max-w-xs">
+            Venice AI has not flagged any high-risk activity in the current monitoring window.
+            Entries appear here when risk score ≥ 66.
+          </p>
+        </div>
       </div>
     );
   }

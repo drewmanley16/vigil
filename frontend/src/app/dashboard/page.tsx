@@ -102,11 +102,29 @@ export default function DashboardPage() {
 
         </div>
 
+        {/* x402 info strip */}
+        <div className="mt-6 flex items-center gap-3 px-4 py-3 rounded-xl border border-violet-500/15 bg-violet-950/8">
+          <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="font-display text-xs font-semibold text-violet-400/80">x402 Payment-Gated API</span>
+            <span className="font-body text-xs text-slate-600 ml-2">
+              <code className="font-mono text-[11px] text-slate-500">GET /guardian-report</code>
+              {' '}requires an x402 payment header — 100 wei on Base Sepolia. Returns a Venice AI guardian report.
+            </span>
+          </div>
+          <a href="https://vigil-agent-production.up.railway.app/guardian-report"
+            target="_blank" rel="noopener noreferrer"
+            className="font-mono text-[11px] text-violet-600 hover:text-violet-400 transition-colors shrink-0">
+            Try it ↗
+          </a>
+        </div>
+
         {/* Footer */}
-        <div className="mt-8 pt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-4 pt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             <span className="font-mono text-[11px] text-slate-700">ERC-8004 AGENT #2279</span>
             <span className="font-mono text-[11px] text-slate-700">VENICE AI · PRIVATE INFERENCE</span>
+            <span className="font-mono text-[11px] text-slate-700">x402 ENABLED</span>
           </div>
           <a href="https://sepolia.basescan.org/address/0x38d5d97C29440C7a50cCc489928bC36392fb4981"
             target="_blank" rel="noopener noreferrer"

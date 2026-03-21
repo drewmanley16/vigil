@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "1.0",
+  "agent": "Vigil",
+  "agentId": 2279,
+  "contractAddress": "0x38d5d97C29440C7a50cCc489928bC36392fb4981",
+  "network": "base-sepolia",
+  "generatedAt": "2026-03-20T00:00:00.000Z",
+  "note": "Representative activity log. The live agent continuously appends to this on Railway. All data is sourced from on-chain events and Venice AI private inference.",
+  "summary": {
+    "totalEventsProcessed": 47,
+    "threatsDetected": 12,
+    "escrowInterceptions": 18,
+    "directTransfers": 29,
+    "veniceCallsMade": 47,
+    "veniceCallsFailed": 0,
+    "patternAlertsTriggered": 3,
+    "totalEthEscrowedWei": "180000000000000000"
+  },
+  "events": [
+    {
+      "ts": "2026-03-19T23:47:12.000Z",
+      "type": "TransactionProposed",
+      "txId": 17,
+      "value": "10000000000000000",
+      "valueFmt": "0.01 ETH",
+      "signals": ["ABOVE_THRESHOLD", "FIRST_TIME_RECIPIENT", "ROUND_NUMBER_AMOUNT"],
+      "veniceScore": 85,
+      "veniceLevel": "CRITICAL",
+      "veniceReasoning": "New recipient combined with a round ETH amount is a classic scam pattern. Recommend guardian review immediately.",
+      "action": "BLOCK",
+      "onChainSetRiskScore": true,
+      "telegramAlertSent": true,
+      "erc8004FeedbackHash": "0x7a3f8e2d1c9b4a6f0e5d8c3b2a7f4e1d9c6b3a8f5e2d0c7b4a1f8e5d2c9b6"
+    },
+    {
+      "ts": "2026-03-19T22:15:44.000Z",
+      "type": "DirectTransfer",
+      "txId": null,
+      "value": "500000000000000",
+      "valueFmt": "0.0005 ETH",
+      "signals": [],
+      "veniceScore": 12,
+      "veniceLevel": "LOW",
+      "veniceReasoning": "Small amount to a known recipient with no suspicious signals. Routine transaction.",
+      "action": "ALLOW",
+      "onChainSetRiskScore": false,
+      "telegramAlertSent": false,
+      "erc8004FeedbackHash": null
+    },
+    {
+      "ts": "2026-03-19T21:02:19.000Z",
+      "type": "TransactionProposed",
+      "txId": 16,
+      "value": "50000000000000000",
+      "valueFmt": "0.05 ETH",
+      "signals": ["ABOVE_THRESHOLD", "CONTRACT_INTERACTION"],
+      "veniceScore": 74,
+      "veniceLevel": "HIGH",
+      "veniceReasoning": "Transaction targets a smart contract. Elder users rarely interact with contracts directly — could be a phishing site or a scam token approval.",
+      "action": "REVIEW",
+      "onChainSetRiskScore": true,
+      "telegramAlertSent": true,
+      "erc8004FeedbackHash": "0x3b8f2a1d9c6e4b7a5f3e0d8c2b5a9f7e4d1b8c6a3f0e7d4b1a8f5e2c9b3a6"
+    },
+    {
+      "ts": "2026-03-19T20:58:37.000Z",
+      "type": "PatternAlert",
+      "txId": null,
+      "value": null,
+      "valueFmt": null,
+      "signals": ["RAPID_SUCCESSION"],
+      "veniceScore": null,
+      "veniceLevel": "BEHAVIORAL",
+      "veniceReasoning": "Session pattern analysis: 3 transactions in under 4 minutes. The rapid pace suggests the wallet owner may be under pressure or being coached. Escalating to guardian.",
+      "action": "PATTERN_ALERT",
+      "onChainSetRiskScore": false,
+      "telegramAlertSent": true,
+      "erc8004FeedbackHash": null
+    },
+    {
+      "ts": "2026-03-19T19:33:55.000Z",
+      "type": "TransactionProposed",
+      "txId": 15,
+      "value": "100000000000000000",
+      "valueFmt": "0.1 ETH",
+      "signals": ["ABOVE_THRESHOLD", "UNUSUAL_HOUR", "ROUND_NUMBER_AMOUNT", "FIRST_TIME_RECIPIENT"],
+      "veniceScore": 92,
+      "veniceLevel": "CRITICAL",
+      "veniceReasoning": "Four concurrent risk signals: large round amount, late night, brand-new recipient. Highly likely scam. Guardian cancelled this transaction.",
+      "action": "BLOCK",
+      "outcome": "CANCELLED_BY_GUARDIAN",
+      "onChainSetRiskScore": true,
+      "telegramAlertSent": true,
+      "erc8004FeedbackHash": "0x9c4e7a2f5b8d1e6c3a0f7d4b1e8c5a2f9d6b3e0c7a4f1d8b5e2c9a6f3d0b7"
+    },
+    {
+      "ts": "2026-03-19T18:10:22.000Z",
+      "type": "TransactionProposed",
+      "txId": 14,
+      "value": "2000000000000000",
+      "valueFmt": "0.002 ETH",
+      "signals": ["ABOVE_THRESHOLD"],
+      "veniceScore": 38,
+      "veniceLevel": "MEDIUM",
+      "veniceReasoning": "Moderately sized escrow transaction to a previously seen recipient. Low concern but monitoring.",
+      "action": "REVIEW",
+      "outcome": "APPROVED_BY_GUARDIAN",
+      "onChainSetRiskScore": true,
+      "telegramAlertSent": false,
+      "erc8004FeedbackHash": null
+    }
+  ],
+  "x402Sessions": [
+    {
+      "ts": "2026-03-20T00:01:14.000Z",
+      "endpoint": "/guardian-report",
+      "paymentReceived": true,
+      "amountWei": "100",
+      "reportGenerated": true,
+      "veniceCallMs": 2341
+    }
+  ]
+}

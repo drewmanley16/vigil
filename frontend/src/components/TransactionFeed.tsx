@@ -109,9 +109,19 @@ export function TransactionFeed() {
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-2 py-12 text-slate-600">
-        <span className="w-2 h-2 rounded-full bg-slate-700 pulse-dot" />
-        <p className="section-label">No transactions yet</p>
+      <div className="flex flex-col items-center gap-3 py-10 text-center">
+        <div className="w-10 h-10 rounded-xl border border-white/5 bg-white/2 flex items-center justify-center">
+          <span className="w-2 h-2 rounded-full bg-cyan-700/60 pulse-dot" />
+        </div>
+        <div>
+          <p className="font-display text-sm font-semibold text-slate-400 mb-1">Agent monitoring — no activity in window</p>
+          <p className="font-body text-xs text-slate-600 max-w-xs">
+            Vigil is scanning Base Sepolia every 15s. Transactions will appear here as the wallet owner sends ETH.
+            Try the{' '}
+            <a href="/demo" className="text-cyan-600 hover:text-cyan-400 transition-colors underline underline-offset-2">Demo page</a>{' '}
+            to trigger a test transaction.
+          </p>
+        </div>
       </div>
     );
   }

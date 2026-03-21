@@ -68,28 +68,37 @@ export function ImpactStats() {
     compute();
   }, []);
 
-  if (!stats) return null;
+  const displayStats = stats ?? {
+    totalMonitored: 0,
+    threatsDetected: 0,
+    escrowedCount: 0,
+    cancelledCount: 0,
+    totalEthInterceptedWei: 0n,
+    totalEthProtectedWei: 0n,
+  };
 
   const items = [
     {
       label: 'Txns Monitored',
-      value: stats.totalMonitored.toString(),
+      value: displayStats.totalMonitored.toString(),
       accent: 'text-slate-300',
     },
     {
       label: 'Threats Flagged',
-      value: stats.threatsDetected.toString(),
-      accent: 'text-orange-400',
+      value: displayStats.threatsDetected.toString(),
+      accent: displayStats.threatsDetected > 0 ? 'text-orange-400' : 'text-slate-600',
     },
     {
       label: 'ETH Escrowed',
-      value: `${parseFloat(formatEther(stats.totalEthInterceptedWei)).toFixed(4)} ETH`,
-      accent: 'text-cyan-400',
+      value: displayStats.totalEthInterceptedWei > 0n
+        ? `${parseFloat(formatEther(displayStats.totalEthInterceptedWei)).toFixed(4)} ETH`
+        : '0 ETH',
+      accent: displayStats.totalEthInterceptedWei > 0n ? 'text-cyan-400' : 'text-slate-600',
     },
     {
       label: 'Txns Cancelled',
-      value: stats.cancelledCount.toString(),
-      accent: 'text-emerald-400',
+      value: displayStats.cancelledCount.toString(),
+      accent: displayStats.cancelledCount > 0 ? 'text-emerald-400' : 'text-slate-600',
       sublabel: 'guardian blocked',
     },
   ];
@@ -97,7 +106,7 @@ export function ImpactStats() {
   return (
     <div className="mb-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
       {items.map((item) => (
-        <div key={item.label} className="card px-4 py-3 text-center">
+        <div key={item.label} className={`card px-4 py-3 text-center transition-opacity duration-500 ${!stats ? 'opacity-40' : ''}`}>
           <p className={`font-display text-xl font-bold tabular-nums ${item.accent}`}>{item.value}</p>
           <p className="font-body text-[11px] text-slate-600 mt-0.5">{item.label}</p>
           {item.sublabel && (

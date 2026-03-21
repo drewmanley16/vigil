@@ -44,7 +44,19 @@ export function RiskSparkline() {
     fetch_();
   }, []);
 
-  if (points.length === 0) return null;
+  if (points.length === 0) {
+    return (
+      <div className="flex items-center gap-3 opacity-30">
+        <span className="section-label shrink-0">Risk trend</span>
+        <svg width={200} height={40} className="overflow-visible">
+          {Array.from({ length: 8 }, (_, i) => (
+            <rect key={i} x={4 + i * 24} y={36} width={10} height={3} rx={2} fill="#334155" opacity={0.5} />
+          ))}
+        </svg>
+        <span className="font-mono text-[10px] text-slate-700 shrink-0">awaiting data</span>
+      </div>
+    );
+  }
 
   const W = 200;
   const H = 40;

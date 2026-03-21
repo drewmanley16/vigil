@@ -206,6 +206,25 @@ body {
 .input:focus { border-color: rgba(6,182,212,0.4); }
 .input:hover { border-color: rgba(255,255,255,0.12); }
 
+/* ── Glow — intense ──────────────────────────────────── */
+.glow-intense {
+  box-shadow:
+    0 0 0 1px rgba(6,182,212,0.3),
+    0 0 40px rgba(6,182,212,0.15),
+    0 0 80px rgba(6,182,212,0.06),
+    0 4px 24px rgba(0,0,0,0.5);
+}
+
+/* ── Shimmer text ─────────────────────────────────────── */
+.shimmer-text {
+  background: linear-gradient(90deg, #06b6d4 0%, #a78bfa 35%, #38bdf8 65%, #06b6d4 100%);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 5s linear infinite;
+}
+
 /* ── Animations ──────────────────────────────────────── */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
@@ -224,6 +243,32 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 .slide-in { animation: slide-in 0.2s ease; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+.float { animation: float 4s ease-in-out infinite; }
+
+@keyframes shimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 300% center; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up   { animation: fade-up 0.5s ease forwards; }
+.fade-up-1 { animation: fade-up 0.5s 0.1s ease both; }
+.fade-up-2 { animation: fade-up 0.5s 0.2s ease both; }
+.fade-up-3 { animation: fade-up 0.5s 0.35s ease both; }
+
+@keyframes glow-breathe {
+  0%, 100% { box-shadow: 0 0 20px rgba(6,182,212,0.08); }
+  50%       { box-shadow: 0 0 40px rgba(6,182,212,0.18), 0 0 80px rgba(6,182,212,0.06); }
+}
+.glow-breathe { animation: glow-breathe 3s ease-in-out infinite; }
 
 /* ── Section label ───────────────────────────────────── */
 .section-label {

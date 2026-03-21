@@ -112,7 +112,7 @@ export default function Home() {
                 accent: 'border-emerald-500/15',
               },
             ].map((f) => (
-              <div key={f.n} className={`card p-5 text-left border ${f.accent} hover:bg-[#131a24] transition-colors`}>
+              <div key={f.n} className={`card card-gradient p-5 text-left hover:bg-[#131a24] transition-colors`}>
                 <div className="font-display text-xs font-bold text-cyan-500/40 mb-4 tracking-widest">{f.n}</div>
                 <p className="font-display text-sm font-semibold text-white mb-2">{f.title}</p>
                 <p className="font-body text-xs text-slate-500 leading-relaxed">{f.desc}</p>
@@ -151,19 +151,13 @@ export default function Home() {
 
         {/* ── TRUST BADGES ─────────────────────────────── */}
         <div className="fade-up-3">
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            {[
-              { dot: 'bg-emerald-400', label: 'Live on Base Sepolia' },
-              { dot: 'bg-violet-400', label: 'Venice AI · Zero retention' },
-              { dot: 'bg-cyan-400', label: 'ERC-8004 Agent #2279' },
-              { dot: 'bg-orange-400', label: 'ERC-8004 On-chain receipts' },
-              { dot: 'bg-slate-400', label: 'Railway · 24/7 monitoring' },
-            ].map((b) => (
-              <div key={b.label} className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${b.dot}`} />
-                <span className="font-mono text-[11px] text-slate-600">{b.label}</span>
-              </div>
-            ))}
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <span className="badge badge-emerald">Live on Base Sepolia</span>
+            <span className="badge badge-violet">Venice AI · Zero Retention</span>
+            <span className="badge badge-cyan">ERC-8004 Agent #2279</span>
+            <span className="badge badge-cyan">On-Chain Attestation</span>
+            <span className="badge badge-cyan">Railway · 24/7</span>
+            <span className="badge badge-violet">x402 Payment API</span>
           </div>
         </div>
 

@@ -1,11 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { formatEther, createPublicClient, http } from 'viem';
-import { baseSepolia } from 'wagmi/chains';
-import { GUARDIAN_WALLET_ABI, CONTRACT_ADDRESS } from '@/lib/contract';
-
-const client = createPublicClient({ chain: baseSepolia, transport: http('https://sepolia.base.org') });
+import { formatEther } from 'viem';
+import { CONTRACT_ADDRESS } from '@/lib/contract';
+import { fetchAllEventsBatch } from '@/lib/events';
 
 interface Stats {
   totalMonitored: number;
@@ -24,14 +22,16 @@ export function ImpactStats() {
 
     async function compute() {
       try {
-        const block = await client.getBlockNumber();
-        const fromBlock = block > 9000n ? block - 9000n : 0n;
-
-        const [proposed, direct, cancelled] = await Promise.all([
-          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionProposed', fromBlock }),
-          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'DirectTransfer', fromBlock }),
-          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionCancelled', fromBlock }),
+        const all = await fetchAllEventsBatch([
+          'TransactionProposed',
+          'DirectTransfer',
+          'TransactionCancelled',
+          'RiskScoreSet',
         ]);
+        const proposed = all['TransactionProposed'];
+        const direct = all['DirectTransfer'];
+        const cancelled = all['TransactionCancelled'];
+        const riskSet = all['RiskScoreSet'];
 
         const cancelledIds = new Set(
           cancelled.map((l) => (l.args as { txId?: bigint }).txId?.toString())
@@ -48,8 +48,6 @@ export function ImpactStats() {
           }
         }
 
-        // RiskScoreSet events = threats detected by Venice (above threshold analysis)
-        const riskSet = await client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'RiskScoreSet', fromBlock });
         const highRiskCount = riskSet.filter((l) => Number((l.args as { score?: bigint }).score ?? 0n) >= 50).length;
 
         setStats({

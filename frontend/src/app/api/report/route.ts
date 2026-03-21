@@ -17,16 +17,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Venice not configured on server' }, { status: 500 });
   }
 
-  // Fetch recent on-chain activity
-  const block = await client.getBlockNumber();
-  const fromBlock = block > 9000n ? block - 9000n : 0n;
+  // Fetch all on-chain activity since contract deployment (paginated)
+  const DEPLOYMENT_BLOCK = 39109265n;
+  const CHUNK_SIZE = 9000n;
+  const currentBlock = await client.getBlockNumber();
+
+  type EvName = 'TransactionProposed' | 'TransactionExecuted' | 'TransactionCancelled' | 'DirectTransfer' | 'RiskScoreSet' | 'SuspiciousActivityFlagged';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function fetchAll(eventName: EvName): Promise<any[]> {
+    const all: unknown[] = [];
+    let from = DEPLOYMENT_BLOCK;
+    while (from <= currentBlock) {
+      const to = from + CHUNK_SIZE < currentBlock ? from + CHUNK_SIZE : currentBlock;
+      const logs = await client.getContractEvents({ address: contractAddress, abi: GUARDIAN_WALLET_ABI, eventName, fromBlock: from, toBlock: to });
+      all.push(...logs);
+      from = to + 1n;
+    }
+    return all;
+  }
 
   const [proposed, direct, riskSet, executed, cancelled] = await Promise.all([
-    client.getContractEvents({ address: contractAddress, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionProposed', fromBlock }),
-    client.getContractEvents({ address: contractAddress, abi: GUARDIAN_WALLET_ABI, eventName: 'DirectTransfer', fromBlock }),
-    client.getContractEvents({ address: contractAddress, abi: GUARDIAN_WALLET_ABI, eventName: 'RiskScoreSet', fromBlock }),
-    client.getContractEvents({ address: contractAddress, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionExecuted', fromBlock }),
-    client.getContractEvents({ address: contractAddress, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionCancelled', fromBlock }),
+    fetchAll('TransactionProposed'),
+    fetchAll('DirectTransfer'),
+    fetchAll('RiskScoreSet'),
+    fetchAll('TransactionExecuted'),
+    fetchAll('TransactionCancelled'),
   ]);
 
   const totalTxns = proposed.length + direct.length;

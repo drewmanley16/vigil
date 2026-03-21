@@ -1,11 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createPublicClient, http } from 'viem';
-import { baseSepolia } from 'wagmi/chains';
-import { GUARDIAN_WALLET_ABI, CONTRACT_ADDRESS } from '@/lib/contract';
-
-const client = createPublicClient({ chain: baseSepolia, transport: http('https://sepolia.base.org') });
+import { CONTRACT_ADDRESS } from '@/lib/contract';
+import { fetchAllEvents } from '@/lib/events';
 
 interface ScorePoint {
   score: number;
@@ -26,18 +23,11 @@ export function RiskSparkline() {
     if (!CONTRACT_ADDRESS) return;
     async function fetch_() {
       try {
-        const block = await client.getBlockNumber();
-        const fromBlock = block > 9000n ? block - 9000n : 0n;
-        const logs = await client.getContractEvents({
-          address: CONTRACT_ADDRESS,
-          abi: GUARDIAN_WALLET_ABI,
-          eventName: 'RiskScoreSet',
-          fromBlock,
-        });
+        const logs = await fetchAllEvents('RiskScoreSet');
         const pts = logs.map(l => ({
           score: Number((l.args as { score: bigint }).score ?? 0n),
           txId: Number((l.args as { txId: bigint }).txId ?? 0n),
-        })).slice(-12); // last 12 scored txns
+        })).slice(-20); // last 20 scored txns
         setPoints(pts);
       } catch { /* silent */ }
     }

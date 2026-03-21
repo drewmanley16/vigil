@@ -2,9 +2,9 @@
 
 import { useWatchContractEvent, useReadContract } from 'wagmi';
 import { useState, useEffect } from 'react';
-import { formatEther, createPublicClient, http } from 'viem';
-import { baseSepolia } from 'wagmi/chains';
+import { formatEther } from 'viem';
 import { GUARDIAN_WALLET_ABI, CONTRACT_ADDRESS } from '@/lib/contract';
+import { fetchAllEventsBatch } from '@/lib/events';
 import { riskLevelFromScore, RiskBadge } from './RiskBadge';
 
 interface AlertItem {
@@ -17,8 +17,6 @@ interface AlertItem {
   hash: string;
   time: Date;
 }
-
-const client = createPublicClient({ chain: baseSepolia, transport: http('https://sepolia.base.org') });
 
 function HighRiskRow({ txId, reason, score, time }: { txId: bigint; reason: string; score: number; time: Date }) {
   const { data: tx } = useReadContract({
@@ -61,12 +59,9 @@ export function AlertHistory() {
     if (!CONTRACT_ADDRESS) { setLoading(false); return; }
     async function fetchHistory() {
       try {
-        const block = await client.getBlockNumber();
-        const fromBlock = block > 9000n ? block - 9000n : 0n;
-        const [flagged, riskSet] = await Promise.all([
-          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'SuspiciousActivityFlagged', fromBlock }),
-          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'RiskScoreSet', fromBlock }),
-        ]);
+        const all = await fetchAllEventsBatch(['SuspiciousActivityFlagged', 'RiskScoreSet']);
+        const flagged = all['SuspiciousActivityFlagged'];
+        const riskSet = all['RiskScoreSet'];
 
         const items: AlertItem[] = [
           ...flagged.map((log) => {

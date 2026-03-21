@@ -2,10 +2,10 @@
 
 import { useWatchContractEvent } from 'wagmi';
 import { useState, useEffect } from 'react';
-import { formatEther, createPublicClient, http } from 'viem';
-import { baseSepolia } from 'wagmi/chains';
+import { formatEther } from 'viem';
 import { GUARDIAN_WALLET_ABI, CONTRACT_ADDRESS } from '@/lib/contract';
 import { RiskBadge, riskLevelFromScore } from './RiskBadge';
+import { fetchAllEventsBatch } from '@/lib/events';
 
 interface FeedItem {
   type: 'proposed' | 'direct';
@@ -19,8 +19,6 @@ interface FeedItem {
   hash: string;
 }
 
-const client = createPublicClient({ chain: baseSepolia, transport: http('https://sepolia.base.org') });
-
 function truncate(addr: string) {
   return `${addr.slice(0, 8)}…${addr.slice(-6)}`;
 }
@@ -33,15 +31,18 @@ export function TransactionFeed() {
     if (!CONTRACT_ADDRESS) { setLoading(false); return; }
     async function fetchHistory() {
       try {
-        const block = await client.getBlockNumber();
-        const fromBlock = block > 9000n ? block - 9000n : 0n;
-        const [proposed, direct, riskSet, executed, cancelled] = await Promise.all([
-          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionProposed', fromBlock }),
-          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'DirectTransfer', fromBlock }),
-          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'RiskScoreSet', fromBlock }),
-          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionExecuted', fromBlock }),
-          client.getContractEvents({ address: CONTRACT_ADDRESS, abi: GUARDIAN_WALLET_ABI, eventName: 'TransactionCancelled', fromBlock }),
+        const all = await fetchAllEventsBatch([
+          'TransactionProposed',
+          'DirectTransfer',
+          'RiskScoreSet',
+          'TransactionExecuted',
+          'TransactionCancelled',
         ]);
+        const proposed = all['TransactionProposed'];
+        const direct = all['DirectTransfer'];
+        const riskSet = all['RiskScoreSet'];
+        const executed = all['TransactionExecuted'];
+        const cancelled = all['TransactionCancelled'];
 
         const initial: FeedItem[] = [
           ...proposed.map((log) => { const { txId, to, value, timestamp } = log.args as any; return { type: 'proposed' as const, txId, to, value, timestamp, status: 'pending' as const, hash: log.transactionHash }; }),

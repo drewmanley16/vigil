@@ -1,8 +1,7 @@
 {
   "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
   "name": "Vigil",
-  "description": "Elder financial fraud prevention agent. Monitors a GuardianWallet smart contract on Base for suspicious outbound transactions. Analyzes each transaction using Venice AI (private, no-retention inference) and alerts designated guardians via Telegram. Large transactions are escrowed until a guardian co-signs.",
-  "image": "https://raw.githubusercontent.com/drewmanley16/vigil/main/docs/vigil-icon.png",
+  "description": "Elder financial fraud prevention agent. Monitors a GuardianWallet smart contract on Base for suspicious outbound transactions. Every transaction is analyzed by Venice AI (private inference, zero data retention) using 6 heuristic signals. Large transactions are escrowed until a family guardian co-signs. Guardians receive Telegram alerts with risk scores, Venice's plain-English reasoning, and one-tap approve/cancel buttons. Risk scores and feedback hashes are written on-chain for full auditability. Also performs session-level behavioral pattern analysis and generates on-demand Venice guardian reports.",
   "services": [
     {
       "name": "web",
@@ -11,6 +10,14 @@
     {
       "name": "dashboard",
       "endpoint": "https://vigil-guardian.vercel.app/dashboard"
+    },
+    {
+      "name": "stats",
+      "endpoint": "https://vigil-agent-production.up.railway.app/stats"
+    },
+    {
+      "name": "health",
+      "endpoint": "https://vigil-agent-production.up.railway.app/health"
     }
   ],
   "x402Support": false,
@@ -27,18 +34,42 @@
     "transaction-monitoring",
     "risk-analysis",
     "guardian-alerting",
-    "on-chain-attestation"
+    "on-chain-attestation",
+    "erc8004-feedback-receipts",
+    "behavioral-pattern-analysis",
+    "guardian-report-generation"
   ],
+  "veniceIntegration": {
+    "model": "llama-3.3-70b",
+    "privateInference": true,
+    "dataRetention": "none",
+    "webSearch": false,
+    "useCases": [
+      "per-transaction-risk-analysis",
+      "session-behavioral-pattern-analysis",
+      "guardian-weekly-report-synthesis"
+    ]
+  },
   "trustModel": {
     "canInitiateTransfers": false,
     "canHoldFunds": false,
     "scopedTo": ["setRiskScore()"],
     "privateInference": true,
     "inferenceProvider": "Venice AI",
-    "dataRetention": "none"
+    "dataRetention": "none",
+    "feedbackSigner": "0xE921b57939Ce3AdAF90b085Af053aBeEaC88ad5e"
   },
+  "signals": [
+    "FIRST_TIME_RECIPIENT",
+    "ABOVE_THRESHOLD",
+    "CONTRACT_INTERACTION",
+    "RAPID_SUCCESSION",
+    "UNUSUAL_HOUR",
+    "ROUND_NUMBER_AMOUNT"
+  ],
   "network": "base",
   "chains": [8453, 84532],
+  "contract": "0x38d5d97C29440C7a50cCc489928bC36392fb4981",
   "repository": "https://github.com/drewmanley16/vigil",
   "contact": {
     "telegram": "@drewmanley"

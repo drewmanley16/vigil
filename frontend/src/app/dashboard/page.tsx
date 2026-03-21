@@ -8,13 +8,15 @@ import { ConnectButton } from '@/components/ConnectWallet';
 import { ContractStats } from '@/components/ContractStats';
 import { ImpactStats } from '@/components/ImpactStats';
 import { AgentStatus } from '@/components/AgentStatus';
+import { GuardianReport } from '@/components/GuardianReport';
+import { RiskSparkline } from '@/components/RiskSparkline';
 import Link from 'next/link';
 
-function Panel({ title, children }: { title: string; icon?: string; children: React.ReactNode }) {
+function Panel({ title, accent, children }: { title: string; accent?: string; children: React.ReactNode }) {
   return (
     <div className="card flex flex-col">
-      <div className="flex items-center gap-2.5 px-5 py-4 border-b border-white/5">
-        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500/60" />
+      <div className={`flex items-center gap-2.5 px-5 py-4 border-b border-white/5`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${accent ?? 'bg-cyan-500/60'}`} />
         <span className="font-display text-sm font-semibold text-slate-200">{title}</span>
       </div>
       <div className="p-4 flex-1 overflow-y-auto max-h-[600px]">
@@ -59,8 +61,13 @@ export default function DashboardPage() {
         {/* Stats bar */}
         <ContractStats />
 
-        {/* Impact metrics from chain events */}
+        {/* Impact metrics */}
         <ImpactStats />
+
+        {/* Risk trend sparkline */}
+        <div className="mb-5 card px-5 py-3">
+          <RiskSparkline />
+        </div>
 
         {!isConnected && (
           <div className="mb-5 flex items-center gap-3 px-4 py-3 rounded-xl border border-yellow-500/20 bg-yellow-950/10">
@@ -73,17 +80,22 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-          {/* Pending — high priority */}
-          <Panel title="Pending Approvals" icon="◈">
-            <PendingApprovals />
-          </Panel>
+          {/* Left column */}
+          <div className="space-y-5">
+            <Panel title="Pending Approvals">
+              <PendingApprovals />
+            </Panel>
+            <Panel title="Guardian Report" accent="bg-violet-500/60">
+              <GuardianReport />
+            </Panel>
+          </div>
 
-          {/* Feed + alerts */}
+          {/* Right column */}
           <div className="lg:col-span-2 space-y-5">
-            <Panel title="Transaction Feed" icon="◈">
+            <Panel title="Transaction Feed">
               <TransactionFeed />
             </Panel>
-            <Panel title="Suspicious Activity Log" icon="◈">
+            <Panel title="Suspicious Activity Log">
               <AlertHistory />
             </Panel>
           </div>
@@ -93,12 +105,8 @@ export default function DashboardPage() {
         {/* Footer */}
         <div className="mt-8 pt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4">
-            <span className="font-mono text-[11px] text-slate-700">
-              ERC-8004 AGENT #2279
-            </span>
-            <span className="font-mono text-[11px] text-slate-700">
-              VENICE AI · PRIVATE INFERENCE
-            </span>
+            <span className="font-mono text-[11px] text-slate-700">ERC-8004 AGENT #2279</span>
+            <span className="font-mono text-[11px] text-slate-700">VENICE AI · PRIVATE INFERENCE</span>
           </div>
           <a href="https://sepolia.basescan.org/address/0x38d5d97C29440C7a50cCc489928bC36392fb4981"
             target="_blank" rel="noopener noreferrer"

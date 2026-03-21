@@ -87,7 +87,7 @@ Venice AI is core to Vigil's safety model:
 - The agent manifest is hosted at `docs/agent-registration.json` and linked to the ERC-8004 NFT
 
 ### Student Founder's Bet ($2,500)
-> Built by a student at **[University Name]**, graduating **[Year]**.
+> Built by a student at **University of Oregon**, graduating **2027**.
 
 ---
 

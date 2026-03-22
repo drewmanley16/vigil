@@ -4,6 +4,10 @@
 
 Built by **Drew Manley** for **The Synthesis Hackathon** · March 2026 · *University of Oregon, graduating 2027*
 
+**[Watch Demo →](https://www.loom.com/share/70a7cab57160497681fe8fea5e046f7e)**
+
+![Vigil Guardian Console](docs/cover.png)
+
 ---
 
 ## The Problem
